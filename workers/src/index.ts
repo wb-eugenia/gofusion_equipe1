@@ -136,23 +136,45 @@ app.post('/api/auth/register', async (c) => {
     const { prenom } = registerSchema.parse(body);
     
     const db = drizzle(c.env.DB, { schema });
-    const userId = crypto.randomUUID();
-    const sessionId = crypto.randomUUID();
     
-    // Create user
-    await db.insert(schema.users).values({
-      id: userId,
-      prenom,
-      xp: 0,
-      role: 'student',
-      streakDays: 0,
-      createdAt: new Date(),
-    });
+    // Check if user with this prenom already exists
+    const existingUser = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.prenom, prenom))
+      .get();
+    
+    let userId: string;
+    let isAdmin = false;
+    
+    if (existingUser) {
+      // User exists, use existing ID and role
+      userId = existingUser.id;
+      isAdmin = existingUser.role === 'admin';
+    } else {
+      // Create new user
+      userId = crypto.randomUUID();
+      await db.insert(schema.users).values({
+        id: userId,
+        prenom,
+        xp: 0,
+        role: 'student',
+        streakDays: 0,
+        createdAt: new Date(),
+      });
+    }
     
     // Create session
+    const sessionId = crypto.randomUUID();
     await c.env.SESSIONS.put(sessionId, userId, { expirationTtl: 60 * 60 * 24 * 7 }); // 7 days
     
-    return c.json({ sessionId, userId, prenom }, 201);
+    return c.json({ 
+      sessionId, 
+      userId, 
+      prenom,
+      role: existingUser?.role || 'student',
+      isAdmin: isAdmin || existingUser?.role === 'admin'
+    }, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -577,6 +599,209 @@ app.delete('/api/admin/badges/:id', async (c) => {
   await db.delete(schema.badges).where(eq(schema.badges.id, badgeId));
   
   return c.json({ success: true });
+});
+
+// ========== SESSIONS ROUTES ==========
+
+app.post('/api/admin/sessions', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { courseId } = body;
+    
+    if (!courseId) {
+      return c.json({ error: 'Course ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if course exists
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    
+    // Deactivate any existing active sessions
+    await db
+      .update(schema.sessions)
+      .set({ isActive: false })
+      .where(eq(schema.sessions.isActive, true));
+    
+    // Generate unique code (6 characters)
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Create new session
+    const sessionId = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 2); // Expires in 2 hours
+    
+    await db.insert(schema.sessions).values({
+      id: sessionId,
+      courseId,
+      createdBy: admin.id,
+      code,
+      isActive: true,
+      createdAt: new Date(),
+      expiresAt,
+    });
+    
+    const session = await db
+      .select({
+        session: schema.sessions,
+        course: schema.courses,
+      })
+      .from(schema.sessions)
+      .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+      .where(eq(schema.sessions.id, sessionId))
+      .get();
+    
+    return c.json({
+      ...session?.session,
+      course: session?.course,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/admin/sessions', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  const sessions = await db
+    .select({
+      session: schema.sessions,
+      course: schema.courses,
+    })
+    .from(schema.sessions)
+    .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+    .orderBy(desc(schema.sessions.createdAt))
+    .limit(50)
+    .all();
+  
+  return c.json(sessions.map(s => ({
+    ...s.session,
+    course: s.course,
+  })));
+});
+
+app.post('/api/admin/sessions/:id/stop', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  await db
+    .update(schema.sessions)
+    .set({ isActive: false })
+    .where(eq(schema.sessions.id, sessionId));
+  
+  return c.json({ success: true });
+});
+
+app.get('/api/admin/sessions/:id/attendances', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const attendances = await db
+    .select({
+      attendance: schema.sessionAttendances,
+      user: schema.users,
+    })
+    .from(schema.sessionAttendances)
+    .innerJoin(schema.users, eq(schema.sessionAttendances.userId, schema.users.id))
+    .where(eq(schema.sessionAttendances.sessionId, sessionId))
+    .all();
+  
+  return c.json(attendances.map(a => ({
+    ...a.attendance,
+    user: a.user,
+  })));
+});
+
+app.post('/api/student/sessions/checkin', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { code } = body;
+    
+    if (!code) {
+      return c.json({ error: 'Code is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Find active session with this code
+    const session = await db
+      .select()
+      .from(schema.sessions)
+      .where(and(eq(schema.sessions.code, code), eq(schema.sessions.isActive, true)))
+      .get();
+    
+    if (!session) {
+      return c.json({ error: 'Session not found or inactive' }, 404);
+    }
+    
+    // Check if already checked in
+    const existingAttendance = await db
+      .select()
+      .from(schema.sessionAttendances)
+      .where(
+        and(
+          eq(schema.sessionAttendances.sessionId, session.id),
+          eq(schema.sessionAttendances.userId, user.id)
+        )
+      )
+      .get();
+    
+    if (existingAttendance) {
+      return c.json({ 
+        success: false, 
+        message: 'Vous êtes déjà inscrit à cette session' 
+      }, 400);
+    }
+    
+    // Create attendance
+    await db.insert(schema.sessionAttendances).values({
+      id: crypto.randomUUID(),
+      sessionId: session.id,
+      userId: user.id,
+      checkedInAt: new Date(),
+    });
+    
+    // Add XP for attendance
+    await db
+      .update(schema.users)
+      .set({ xp: user.xp + 10 }) // 10 XP for attendance
+      .where(eq(schema.users.id, user.id));
+    
+    return c.json({ 
+      success: true, 
+      message: 'Inscription réussie ! +10 XP' 
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 // Fallback for 404

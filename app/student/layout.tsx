@@ -43,6 +43,7 @@ export default function StudentLayout({
 
   const navItems = [
     { href: '/student/courses', label: 'Cours', icon: '📚' },
+    { href: '/student/checkin', label: 'Check-in', icon: '📱' },
     { href: '/student/ranking', label: 'Classement', icon: '🏆' },
     { href: '/student/profile', label: 'Profil', icon: '👤' },
     { href: '/student/badges', label: 'Badges', icon: '🎖️' },

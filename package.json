@@ -13,6 +13,9 @@
     "prisma:generate": "drizzle-kit generate",
     "prisma:migrate": "wrangler d1 execute gamification-db --file=./prisma/migrations/schema.sql",
     "prisma:migrate:local": "wrangler d1 execute gamification-db --local --file=./prisma/migrations/schema.sql",
+    "create-admin": "powershell -ExecutionPolicy Bypass -File ./scripts/create-admin.ps1",
+    "create-admin:name": "powershell -ExecutionPolicy Bypass -File ./scripts/create-admin.ps1",
+    "check-data": "powershell -ExecutionPolicy Bypass -File ./scripts/check-data.ps1",
     "setup": "node scripts/setup.js",
     "prisma:studio": "drizzle-kit studio",
     "deploy:pages": "npm run build && wrangler pages deploy .next",
@@ -27,6 +30,7 @@
     "drizzle-orm": "^0.29.0",
     "hono": "^4.0.0",
     "next": "^14.2.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "zod": "^3.22.4"

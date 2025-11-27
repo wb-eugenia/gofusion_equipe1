@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Gamification App - Étudiants',
-  description: 'Application de gamification pour étudiants avec badges et achievements',
+  title: 'Gamification App - Apprenez en vous amusant',
+  description: 'Transformez votre apprentissage en jeu avec notre plateforme de gamification. Gagnez des XP, débloquez des badges et montez dans le classement !',
 };
 
 export default function RootLayout({

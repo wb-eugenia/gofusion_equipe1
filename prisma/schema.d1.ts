@@ -42,6 +42,23 @@ export const userBadges = sqliteTable('user_badges', {
   unlockedAt: integer('unlocked_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  courseId: text('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  code: text('code').notNull().unique(), // Code unique pour le QR code
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+});
+
+export const sessionAttendances = sqliteTable('session_attendances', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  checkedInAt: integer('checked_in_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Course = typeof courses.$inferSelect;
@@ -50,4 +67,7 @@ export type Badge = typeof badges.$inferSelect;
 export type NewBadge = typeof badges.$inferInsert;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type SessionAttendance = typeof sessionAttendances.$inferSelect;
 

@@ -48,6 +48,7 @@ export default function AdminLayout({
   if (!user) return null;
 
   const navItems = [
+    { href: '/admin', label: 'Dashboard', icon: '⚙️' },
     { href: '/admin/kpi', label: 'KPI', icon: '📊' },
     { href: '/admin/courses', label: 'Cours', icon: '📚' },
     { href: '/admin/badges', label: 'Badges', icon: '🎖️' },

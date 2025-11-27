@@ -49,12 +49,39 @@ CREATE TABLE IF NOT EXISTS user_badges (
   FOREIGN KEY (badge_id) REFERENCES badges(id) ON DELETE CASCADE
 );
 
+-- Sessions table
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  course_id TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  is_active INTEGER DEFAULT 1 NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER,
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Session attendances table
+CREATE TABLE IF NOT EXISTS session_attendances (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  checked_in_at INTEGER NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_progress_course_id ON user_progress(course_id);
 CREATE INDEX IF NOT EXISTS idx_user_badges_user_id ON user_badges(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_badges_badge_id ON user_badges(badge_id);
 CREATE INDEX IF NOT EXISTS idx_users_xp ON users(xp DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_code ON sessions(code);
+CREATE INDEX IF NOT EXISTS idx_sessions_course_id ON sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_session_attendances_session_id ON session_attendances(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_attendances_user_id ON session_attendances(user_id);
 
 -- Insert default badges
 INSERT OR IGNORE INTO badges (id, name, icon, description, threshold_xp, condition_type, condition_value, created_at) VALUES

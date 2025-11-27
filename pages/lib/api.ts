@@ -142,3 +142,33 @@ export async function deleteBadge(badgeId: string) {
   });
 }
 
+// Admin - Sessions
+export async function createSession(courseId: string) {
+  return apiRequest<any>('/api/admin/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ courseId }),
+  });
+}
+
+export async function getSessions() {
+  return apiRequest<any[]>('/api/admin/sessions');
+}
+
+export async function stopSession(sessionId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/sessions/${sessionId}/stop`, {
+    method: 'POST',
+  });
+}
+
+export async function getSessionAttendances(sessionId: string) {
+  return apiRequest<any[]>(`/api/admin/sessions/${sessionId}/attendances`);
+}
+
+// Student - Sessions
+export async function checkInSession(code: string) {
+  return apiRequest<{ success: boolean; message: string }>('/api/student/sessions/checkin', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
