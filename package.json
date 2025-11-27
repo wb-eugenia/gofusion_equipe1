@@ -3,14 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently \"npm run worker:dev\" \"npm run next:dev\"",
+    "next:dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "worker:dev": "wrangler dev workers/src/index.ts",
+    "worker:dev": "wrangler dev workers/src/index.ts --local",
     "worker:deploy": "wrangler deploy workers/src/index.ts",
     "prisma:generate": "drizzle-kit generate",
     "prisma:migrate": "wrangler d1 execute gamification-db --file=./prisma/migrations/schema.sql",
+    "prisma:migrate:local": "wrangler d1 execute gamification-db --local --file=./prisma/migrations/schema.sql",
     "setup": "node scripts/setup.js",
     "prisma:studio": "drizzle-kit studio",
     "deploy:pages": "npm run build && wrangler pages deploy .next",
@@ -18,30 +20,30 @@
     "deploy:all": "npm run deploy:pages && npm run deploy:worker"
   },
   "dependencies": {
+    "@cloudflare/workers-types": "^4.20240425.0",
+    "@hono/node-server": "^1.12.0",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "^3.0.0",
+    "drizzle-orm": "^0.29.0",
+    "hono": "^4.0.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "hono": "^4.0.0",
-    "@hono/node-server": "^1.12.0",
-    "drizzle-orm": "^0.29.0",
-    "@cloudflare/workers-types": "^4.20240425.0",
-    "zod": "^3.22.4",
-    "bcryptjs": "^2.4.3",
-    "date-fns": "^3.0.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@types/bcryptjs": "^2.4.6",
-    "typescript": "^5.3.0",
-    "tailwindcss": "^3.4.0",
     "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0",
+    "concurrently": "^8.2.2",
     "drizzle-kit": "^0.20.0",
-    "wrangler": "^3.38.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^3.38.0"
   }
 }
-

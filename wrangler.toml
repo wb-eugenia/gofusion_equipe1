@@ -8,12 +8,12 @@ name = "gamification-app-prod"
 [[d1_databases]]
 binding = "DB"
 database_name = "gamification-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "3b2d2589-1661-42dc-ae39-eaf6ddacacdc"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_ID"
+id = "0a93b4381423409281c00ebe5a294762"
+preview_id = "7c3659065e7f43ac952ff7f31a4331e9"
 
 [vars]
 ENVIRONMENT = "production"
