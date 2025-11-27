@@ -16,25 +16,30 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    const sessionId = localStorage.getItem('sessionId');
-    if (!sessionId) {
-      router.push('/');
+    // Check admin password access first
+    const adminAccess = sessionStorage.getItem('adminAccess');
+    if (!adminAccess) {
+      router.push('/admin/login');
       return;
     }
 
-    getUser()
-      .then((userData) => {
-        if (userData.role !== 'admin') {
-          router.push('/student/courses');
-          return;
-        }
-        setUser(userData);
-      })
-      .catch(() => {
-        localStorage.removeItem('sessionId');
-        router.push('/');
-      })
-      .finally(() => setLoading(false));
+    // Try to get user if session exists, but don't require it
+    const sessionId = localStorage.getItem('sessionId');
+    if (sessionId) {
+      getUser()
+        .then((userData) => {
+          setUser({ ...userData, role: 'admin' });
+        })
+        .catch(() => {
+          // If user doesn't exist, still allow access with password
+          setUser({ prenom: 'Admin', role: 'admin', xp: 0 });
+        })
+        .finally(() => setLoading(false));
+    } else {
+      // No session but password is correct, allow access
+      setUser({ prenom: 'Admin', role: 'admin', xp: 0 });
+      setLoading(false);
+    }
   }, [router]);
 
   if (loading) {
@@ -53,6 +58,11 @@ export default function AdminLayout({
     { href: '/admin/courses', label: 'Cours', icon: '📚' },
     { href: '/admin/badges', label: 'Badges', icon: '🎖️' },
   ];
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('adminAccess');
+    router.push('/admin/login');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,6 +97,12 @@ export default function AdminLayout({
               >
                 Vue Étudiant
               </Link>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-red-600 hover:text-red-900"
+              >
+                Déconnexion
+              </button>
             </div>
           </div>
         </div>

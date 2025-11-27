@@ -30,17 +30,27 @@ export default function AdminDashboard() {
   const loadData = async () => {
     try {
       const [kpiData, coursesData, sessionsData] = await Promise.all([
-        getKPI(),
-        getCourses(),
-        getSessions(),
+        getKPI().catch(err => {
+          console.error('Error loading KPI:', err);
+          return null;
+        }),
+        getCourses().catch(err => {
+          console.error('Error loading courses:', err);
+          return [];
+        }),
+        getSessions().catch(err => {
+          console.error('Error loading sessions:', err);
+          return [];
+        }),
       ]);
       setKpi(kpiData);
-      setCourses(coursesData);
-      setSessions(sessionsData);
-      const active = sessionsData.find((s: any) => s.isActive);
+      setCourses(coursesData || []);
+      setSessions(sessionsData || []);
+      const active = (sessionsData || []).find((s: any) => s.isActive);
       setActiveSession(active);
     } catch (error) {
       console.error('Error loading data:', error);
+      alert('Erreur lors du chargement des données. Vérifiez la console.');
     } finally {
       setLoading(false);
     }
@@ -88,7 +98,25 @@ export default function AdminDashboard() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Chargement...</div>;
+    return (
+      <div className="text-center py-12">
+        <div className="text-xl">Chargement...</div>
+      </div>
+    );
+  }
+
+  if (!kpi) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">Erreur lors du chargement des données</div>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   }
 
   return (

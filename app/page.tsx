@@ -38,12 +38,20 @@ export default function Home() {
             <div className="flex items-center">
               <span className="text-2xl font-bold text-blue-600">🎮 Gamification App</span>
             </div>
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
-            >
-              Créer un compte
-            </button>
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/admin/login"
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition"
+              >
+                Admin
+              </Link>
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              >
+                Créer un compte
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -232,7 +240,7 @@ export default function Home() {
                   value={prenom}
                   onChange={(e) => setPrenom(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-gray-900 bg-white"
                   placeholder="Entrez votre prénom"
                   autoFocus
                 />

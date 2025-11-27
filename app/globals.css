@@ -26,6 +26,24 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+/* Fix input text color */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
