@@ -1,0 +1,20 @@
+name = "gamification-app"
+main = "workers/src/index.ts"
+compatibility_date = "2024-01-01"
+
+[env.production]
+name = "gamification-app-prod"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gamification-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_KV_PREVIEW_ID"
+
+[vars]
+ENVIRONMENT = "production"
+

@@ -1,0 +1,46 @@
+{
+  "name": "my-gamification-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "worker:dev": "wrangler dev workers/src/index.ts",
+    "worker:deploy": "wrangler deploy workers/src/index.ts",
+    "prisma:generate": "drizzle-kit generate",
+    "prisma:migrate": "wrangler d1 execute gamification-db --file=./prisma/migrations/schema.sql",
+    "prisma:studio": "drizzle-kit studio",
+    "deploy:pages": "npm run build && wrangler pages deploy .next",
+    "deploy:worker": "npm run worker:deploy",
+    "deploy:all": "npm run deploy:pages && npm run deploy:worker"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "hono": "^4.0.0",
+    "@hono/node-server": "^1.12.0",
+    "drizzle-orm": "^0.29.0",
+    "@cloudflare/workers-types": "^4.20240425.0",
+    "zod": "^3.22.4",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5.3.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "drizzle-kit": "^0.20.0",
+    "wrangler": "^3.38.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0"
+  }
+}
+
