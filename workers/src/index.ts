@@ -19,6 +19,22 @@ app.use('/*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Health check route
+app.get('/', (c) => {
+  return c.json({ 
+    message: 'Gamification API is running',
+    version: '1.0.0',
+    endpoints: [
+      'POST /api/auth/register',
+      'GET /api/user',
+      'GET /api/courses',
+      'POST /api/courses/:id/complete',
+      'GET /api/student/ranking',
+      'GET /api/student/badges',
+    ]
+  });
+});
+
 // Helper: Get user from session
 async function getUser(c: any): Promise<schema.User | null> {
   const sessionId = c.req.header('Authorization')?.replace('Bearer ', '');
@@ -561,6 +577,17 @@ app.delete('/api/admin/badges/:id', async (c) => {
   await db.delete(schema.badges).where(eq(schema.badges.id, badgeId));
   
   return c.json({ success: true });
+});
+
+// Fallback for 404
+app.notFound((c) => {
+  return c.json({ error: 'Route not found' }, 404);
+});
+
+// Error handler
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return c.json({ error: err.message || 'Internal server error' }, 500);
 });
 
 export default app;
