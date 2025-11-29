@@ -18,7 +18,7 @@
     "check-data": "powershell -ExecutionPolicy Bypass -File ./scripts/check-data.ps1",
     "setup": "node scripts/setup.js",
     "prisma:studio": "drizzle-kit studio",
-    "deploy:pages": "npm run build && wrangler pages deploy .next --project-name=gamification-app",
+    "deploy:pages": "npm run build && wrangler pages deploy out --project-name=gamification-app",
     "deploy:worker": "npm run worker:deploy",
     "deploy:all": "npm run deploy:worker && npm run deploy:pages",
     "deploy:db": "npm run prisma:migrate"
@@ -30,6 +30,7 @@
     "date-fns": "^3.0.0",
     "drizzle-orm": "^0.29.0",
     "hono": "^4.0.0",
+    "html5-qrcode": "^2.3.8",
     "next": "^14.2.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.0",

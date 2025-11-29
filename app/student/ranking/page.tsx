@@ -63,7 +63,7 @@ export default function RankingPage() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-blue-600">⭐ {student.xp} XP</p>
+                <p className="text-lg font-bold text-yellow-600">🍌 {student.xp} bananes</p>
               </div>
             </div>
           ))}
@@ -77,7 +77,7 @@ export default function RankingPage() {
               <p className="font-semibold text-gray-900">Votre position</p>
               <p className="text-sm text-gray-600">Rang #{ranking.userPosition}</p>
             </div>
-            <p className="text-xl font-bold text-blue-600">⭐ {ranking.userXp} XP</p>
+            <p className="text-xl font-bold text-yellow-600">🍌 {ranking.userXp} bananes</p>
           </div>
         </div>
       )}

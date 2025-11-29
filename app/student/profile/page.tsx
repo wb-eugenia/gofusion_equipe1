@@ -52,8 +52,8 @@ export default function ProfilePage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistiques</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">XP Total</span>
-              <span className="text-2xl font-bold text-blue-600">⭐ {user.xp}</span>
+              <span className="text-gray-600">Bananes Total</span>
+              <span className="text-2xl font-bold text-yellow-600">🍌 {user.xp}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Streak</span>

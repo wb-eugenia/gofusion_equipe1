@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCourses, completeCourse, getUser } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { getCourses, getUser } from '@/lib/api';
 
 export default function CoursesPage() {
+  const router = useRouter();
   const [courses, setCourses] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [completing, setCompleting] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -28,29 +29,24 @@ export default function CoursesPage() {
     }
   };
 
-  const handleComplete = async (courseId: string) => {
-    setCompleting(courseId);
-    try {
-      const result = await completeCourse(courseId);
-      await loadData(); // Reload to get updated data
-      alert(`🎉 Cours complété ! +${result.xpGained} XP (Total: ${result.totalXp} XP)`);
-    } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
-    } finally {
-      setCompleting(null);
-    }
-  };
 
   if (loading) {
     return <div className="text-center py-12">Chargement des cours...</div>;
   }
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-4 py-6 relative">
+      <div className="absolute top-4 right-4 hidden md:block">
+        <img 
+          src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" 
+          alt="Singe" 
+          className="w-16 h-16 object-contain"
+        />
+      </div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Mes Cours</h1>
         <p className="text-gray-600">
-          Complétez les cours pour gagner de l'XP et débloquer des badges !
+          Complétez les cours pour gagner des 🍌 bananes et débloquer des badges !
         </p>
       </div>
 
@@ -71,7 +67,7 @@ export default function CoursesPage() {
               <p className="text-gray-600 mb-4">{course.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-blue-600 font-semibold">
-                  ⭐ +{course.xpReward} XP
+                  🍌 +{course.xpReward} bananes
                 </span>
                 {course.completed ? (
                   <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
@@ -79,11 +75,10 @@ export default function CoursesPage() {
                   </span>
                 ) : (
                   <button
-                    onClick={() => handleComplete(course.id)}
-                    disabled={completing === course.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                    onClick={() => router.push(`/student/courses/quiz?id=${course.id}`)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
-                    {completing === course.id ? 'Complétion...' : 'Commencer'}
+                    Commencer
                   </button>
                 )}
               </div>

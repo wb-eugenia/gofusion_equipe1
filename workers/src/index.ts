@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import * as schema from '../../prisma/schema.d1';
 import { z } from 'zod';
 
@@ -217,7 +217,14 @@ app.get('/api/courses', async (c) => {
   }
   
   const db = drizzle(c.env.DB, { schema });
-  const courses = await db.select().from(schema.courses).all();
+  const courses = await db
+    .select({
+      course: schema.courses,
+      matiere: schema.matieres,
+    })
+    .from(schema.courses)
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
+    .all();
   
   // Get user progress
   const userProgress = await db
@@ -227,12 +234,50 @@ app.get('/api/courses', async (c) => {
     .all();
   const completedCourseIds = new Set(userProgress.map(up => up.courseId));
   
-  const coursesWithProgress = courses.map(course => ({
+  const coursesWithProgress = courses.map(({ course, matiere }) => ({
     ...course,
+    matiere: matiere || null,
     completed: completedCourseIds.has(course.id),
   }));
   
   return c.json(coursesWithProgress);
+});
+
+app.get('/api/courses/:id', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const courseId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const course = await db
+    .select({
+      course: schema.courses,
+      matiere: schema.matieres,
+    })
+    .from(schema.courses)
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
+    .where(eq(schema.courses.id, courseId))
+    .get();
+  
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+  
+  const questions = await db
+    .select()
+    .from(schema.questions)
+    .where(eq(schema.questions.courseId, courseId))
+    .orderBy(asc(schema.questions.order))
+    .all();
+  
+  return c.json({
+    ...course.course,
+    matiere: course.matiere,
+    questions,
+  });
 });
 
 const completeCourseSchema = z.object({
@@ -282,10 +327,15 @@ app.post('/api/courses/:id/complete', async (c) => {
     .where(eq(schema.users.id, user.id));
   
   // Update streak (simplified: increment if last completion was today or yesterday)
+  const allUserProgress = await db
+    .select()
+    .from(schema.userProgress)
+    .where(eq(schema.userProgress.userId, user.id))
+    .all();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const lastCompletion = userProgress.length > 0 
-    ? new Date(Math.max(...userProgress.map(up => up.completedAt.getTime())))
+  const lastCompletion = allUserProgress.length > 0 
+    ? new Date(Math.max(...allUserProgress.map(up => up.completedAt.getTime())))
     : null;
   
   if (!lastCompletion || lastCompletion >= today) {
@@ -438,9 +488,31 @@ app.get('/api/admin/courses', async (c) => {
   }
   
   const db = drizzle(c.env.DB, { schema });
-  const courses = await db.select().from(schema.courses).all();
+  const courses = await db
+    .select({
+      course: schema.courses,
+      matiere: schema.matieres,
+    })
+    .from(schema.courses)
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
+    .all();
   
-  return c.json(courses);
+  return c.json(courses.map(({ course, matiere }) => ({
+    ...course,
+    matiere: matiere || null,
+  })));
+});
+
+app.get('/api/matieres', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  const matieres = await db.select().from(schema.matieres).all();
+  
+  return c.json(matieres);
 });
 
 const createCourseSchema = z.object({
@@ -704,6 +776,36 @@ app.get('/api/admin/sessions', async (c) => {
   })));
 });
 
+app.post('/api/admin/sessions/:id/start', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db
+    .select()
+    .from(schema.sessions)
+    .where(eq(schema.sessions.id, sessionId))
+    .get();
+  
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  await db
+    .update(schema.sessions)
+    .set({ 
+      status: 'started',
+      startedAt: new Date(),
+    })
+    .where(eq(schema.sessions.id, sessionId));
+  
+  return c.json({ success: true });
+});
+
 app.post('/api/admin/sessions/:id/stop', async (c) => {
   const admin = await requireAdmin(c);
   if (!admin) {
@@ -715,7 +817,10 @@ app.post('/api/admin/sessions/:id/stop', async (c) => {
   
   await db
     .update(schema.sessions)
-    .set({ isActive: false })
+    .set({ 
+      isActive: false,
+      status: 'finished',
+    })
     .where(eq(schema.sessions.id, sessionId));
   
   return c.json({ success: true });
@@ -808,11 +913,166 @@ app.post('/api/student/sessions/checkin', async (c) => {
     
     return c.json({ 
       success: true, 
-      message: 'Inscription réussie ! +10 XP' 
+      message: 'Inscription réussie ! +10 XP',
+      sessionId: session.id,
     });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
+});
+
+app.get('/api/student/sessions/code/:code', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const code = c.req.param('code');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db
+    .select({
+      session: schema.sessions,
+      course: schema.courses,
+      matiere: schema.matieres,
+    })
+    .from(schema.sessions)
+    .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
+    .where(eq(schema.sessions.code, code))
+    .get();
+  
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  return c.json({
+    ...session.session,
+    course: session.course,
+    matiere: session.matiere,
+  });
+});
+
+app.get('/api/student/sessions/:id/status', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db
+    .select()
+    .from(schema.sessions)
+    .where(eq(schema.sessions.id, sessionId))
+    .get();
+  
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  return c.json({
+    status: session.status,
+    startedAt: session.startedAt,
+  });
+});
+
+app.post('/api/student/sessions/answer', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { sessionId, questionId, answer } = body;
+    
+    if (!sessionId || !questionId || answer === undefined) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Get question to check answer
+    const question = await db
+      .select()
+      .from(schema.questions)
+      .where(eq(schema.questions.id, questionId))
+      .get();
+    
+    if (!question) {
+      return c.json({ error: 'Question not found' }, 404);
+    }
+    
+    const isCorrect = answer === question.correctAnswer;
+    
+    // Save answer
+    await db.insert(schema.sessionQuizAnswers).values({
+      id: crypto.randomUUID(),
+      sessionId,
+      userId: user.id,
+      questionId,
+      answer: answer.toString(),
+      isCorrect,
+      answeredAt: new Date(),
+    });
+    
+    return c.json({ success: true, isCorrect });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/student/sessions/:id/ranking', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all answers for this session
+  const answers = await db
+    .select({
+      userId: schema.sessionQuizAnswers.userId,
+      isCorrect: schema.sessionQuizAnswers.isCorrect,
+      user: schema.users,
+    })
+    .from(schema.sessionQuizAnswers)
+    .innerJoin(schema.users, eq(schema.sessionQuizAnswers.userId, schema.users.id))
+    .where(eq(schema.sessionQuizAnswers.sessionId, sessionId))
+    .all();
+  
+  // Calculate scores
+  const userScores: Record<string, { user: any; correct: number; total: number }> = {};
+  
+  answers.forEach((a) => {
+    if (!userScores[a.userId]) {
+      userScores[a.userId] = {
+        user: a.user,
+        correct: 0,
+        total: 0,
+      };
+    }
+    userScores[a.userId].total++;
+    if (a.isCorrect) {
+      userScores[a.userId].correct++;
+    }
+  });
+  
+  // Convert to array and sort by score
+  const ranking = Object.values(userScores)
+    .map((score) => ({
+      ...score.user,
+      score: score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0,
+      correct: score.correct,
+      total: score.total,
+    }))
+    .sort((a, b) => b.score - a.score || b.correct - a.correct);
+  
+  return c.json(ranking);
 });
 
 // Fallback for 404

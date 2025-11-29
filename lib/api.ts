@@ -12,26 +12,41 @@ export async function apiRequest<T>(
     ? localStorage.getItem('sessionId') 
     : null;
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
   
   if (sessionId) {
     headers['Authorization'] = `Bearer ${sessionId}`;
   }
   
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
   
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const error: any = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout - le serveur ne répond pas');
+    }
+    throw error;
   }
-  
-  return response.json();
 }
 
 // Auth
@@ -52,6 +67,10 @@ export async function getUser() {
 // Courses
 export async function getCourses() {
   return apiRequest<any[]>('/api/courses');
+}
+
+export async function getCourse(courseId: string) {
+  return apiRequest<any>(`/api/courses/${courseId}`);
 }
 
 export async function completeCourse(courseId: string) {
@@ -170,9 +189,35 @@ export async function getSessionAttendances(sessionId: string) {
 
 // Student - Sessions
 export async function checkInSession(code: string) {
-  return apiRequest<{ success: boolean; message: string }>('/api/student/sessions/checkin', {
+  return apiRequest<{ success: boolean; message: string; sessionId: string }>('/api/student/sessions/checkin', {
     method: 'POST',
     body: JSON.stringify({ code }),
+  });
+}
+
+export async function getSessionByCode(code: string) {
+  return apiRequest<any>(`/api/student/sessions/code/${code}`);
+}
+
+export async function getSessionStatus(sessionId: string) {
+  return apiRequest<{ status: string; startedAt?: number }>(`/api/student/sessions/${sessionId}/status`);
+}
+
+export async function submitSessionAnswer(sessionId: string, questionId: string, answer: string) {
+  return apiRequest<{ success: boolean; isCorrect: boolean }>('/api/student/sessions/answer', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, questionId, answer }),
+  });
+}
+
+export async function getSessionRanking(sessionId: string) {
+  return apiRequest<any[]>(`/api/student/sessions/${sessionId}/ranking`);
+}
+
+// Admin - Sessions
+export async function startSessionQuiz(sessionId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/sessions/${sessionId}/start`, {
+    method: 'POST',
   });
 }
 

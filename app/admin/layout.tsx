@@ -1,73 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getUser } from '@/lib/api';
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    // Only check if we're not already on the login page
-    if (pathname === '/admin/login') {
-      setLoading(false);
-      return;
-    }
-
-    // Check admin password access first (client-side only)
-    if (typeof window !== 'undefined') {
-      const adminAccess = sessionStorage.getItem('adminAccess');
-      if (!adminAccess) {
-        router.push('/admin/login');
-        return;
-      }
-
-      // Set user immediately (no need to wait for API call)
-      setUser({ prenom: 'Admin', role: 'admin', xp: 0 });
-      setLoading(false);
-
-      // Optionally try to get real user data in background (non-blocking)
-      const sessionId = localStorage.getItem('sessionId');
-      if (sessionId) {
-        getUser()
-          .then((userData) => {
-            setUser({ ...userData, role: 'admin' });
-          })
-          .catch(() => {
-            // Ignore errors, we already have a user
-          });
-      }
-    }
-  }, [router, pathname]);
-
-  // Don't render layout on login page
-  if (pathname === '/admin/login') {
-    return <>{children}</>;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Chargement...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Vérification de l'accès...</div>
-      </div>
-    );
-  }
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: '⚙️' },
@@ -77,8 +21,7 @@ export default function AdminLayout({
   ];
 
   const handleLogout = () => {
-    sessionStorage.removeItem('adminAccess');
-    router.push('/admin/login');
+    router.push('/');
   };
 
   return (
@@ -106,6 +49,20 @@ export default function AdminLayout({
                   </Link>
                 ))}
               </div>
+              {/* Mobile menu button for admin */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="sm:hidden ml-4 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                aria-label="Menu"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
             </div>
             <div className="flex items-center space-x-4">
               <Link
@@ -123,6 +80,29 @@ export default function AdminLayout({
             </div>
           </div>
         </div>
+        
+        {/* Mobile menu for admin */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-gray-200">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    pathname === item.href
+                      ? 'bg-purple-50 text-purple-700 border-l-4 border-purple-500'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="mr-2">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

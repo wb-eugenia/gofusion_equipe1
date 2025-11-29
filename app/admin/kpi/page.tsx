@@ -38,7 +38,7 @@ export default function KPIPage() {
       color: 'blue',
     },
     {
-      title: 'XP Total',
+      title: 'Bananes Total',
       value: kpi.totalXp.toLocaleString(),
       icon: '⭐',
       color: 'yellow',

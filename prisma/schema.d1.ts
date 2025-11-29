@@ -9,11 +9,31 @@ export const users = sqliteTable('users', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const matieres = sqliteTable('matieres', {
+  id: text('id').primaryKey(),
+  nom: text('nom').notNull(),
+  description: text('description'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const courses = sqliteTable('courses', {
   id: text('id').primaryKey(),
   titre: text('titre').notNull(),
   description: text('description').notNull(),
+  matiereId: text('matiere_id').references(() => matieres.id, { onDelete: 'cascade' }),
+  gameType: text('game_type').notNull().default('quiz'), // 'quiz' | 'memory' | 'match'
   xpReward: integer('xp_reward').default(50).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const questions = sqliteTable('questions', {
+  id: text('id').primaryKey(),
+  courseId: text('course_id').notNull().references(() => courses.id, { onDelete: 'cascade' }),
+  question: text('question').notNull(),
+  type: text('type').notNull().default('multiple_choice'), // 'multiple_choice' | 'memory_pair' | 'match_pair'
+  options: text('options'), // JSON string for quiz options or memory/match pairs
+  correctAnswer: text('correct_answer'), // For quiz: answer index or value, for memory/match: pair data
+  order: integer('order').default(0).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -48,6 +68,8 @@ export const sessions = sqliteTable('sessions', {
   createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
   code: text('code').notNull().unique(), // Code unique pour le QR code
   isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  status: text('status').default('waiting').notNull(), // 'waiting' | 'started' | 'finished'
+  startedAt: integer('started_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }),
 });
@@ -57,6 +79,16 @@ export const sessionAttendances = sqliteTable('session_attendances', {
   sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   checkedInAt: integer('checked_in_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const sessionQuizAnswers = sqliteTable('session_quiz_answers', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  questionId: text('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  answer: text('answer').notNull(),
+  isCorrect: integer('is_correct', { mode: 'boolean' }).notNull(),
+  answeredAt: integer('answered_at', { mode: 'timestamp' }).notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -70,4 +102,6 @@ export type UserBadge = typeof userBadges.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type SessionAttendance = typeof sessionAttendances.$inferSelect;
+export type SessionQuizAnswer = typeof sessionQuizAnswers.$inferSelect;
+export type NewSessionQuizAnswer = typeof sessionQuizAnswers.$inferInsert;
 

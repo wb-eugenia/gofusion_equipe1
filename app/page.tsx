@@ -35,12 +35,17 @@ export default function Home() {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
+              <img 
+                src="/singes/gemini_generated_image_9dl7059dl7059dl7-removebg-preview_480.png" 
+                alt="Singe" 
+                className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
+              />
               <span className="text-lg sm:text-2xl font-bold text-blue-600">🎮 Gamification App</span>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link
-                href="/admin/login"
+                href="/admin"
                 className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-purple-700 transition"
               >
                 Admin
@@ -65,7 +70,7 @@ export default function Home() {
           </h1>
           <p className="text-base sm:text-xl md:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
             Transformez votre apprentissage en jeu avec notre plateforme de gamification.
-            Gagnez des XP, débloquez des badges et montez dans le classement !
+            Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !
           </p>
           <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-4">
             <button
@@ -92,9 +97,9 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
             <div className="text-5xl mb-4 text-center">⭐</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Système d'XP</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Système de Bananes 🍌</h3>
             <p className="text-gray-600 text-center">
-              Gagnez des points d'expérience en complétant des cours et en participant aux sessions.
+              Gagnez des bananes en complétant des cours et en participant aux sessions.
               Plus vous apprenez, plus vous progressez !
             </p>
           </div>
@@ -118,7 +123,7 @@ export default function Home() {
             <div className="text-5xl mb-4 text-center">📚</div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Cours Interactifs</h3>
             <p className="text-gray-600 text-center">
-              Accédez à une variété de cours et complétez-les pour gagner de l'XP.
+              Accédez à une variété de cours et complétez-les pour gagner des 🍌 bananes.
               Chaque cours complété vous rapproche de nouveaux badges !
             </p>
           </div>
@@ -126,7 +131,7 @@ export default function Home() {
             <div className="text-5xl mb-4 text-center">📱</div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Sessions QR Code</h3>
             <p className="text-gray-600 text-center">
-              Participez aux sessions en scannant un QR code. Gagnez 10 XP à chaque participation
+              Participez aux sessions en scannant un QR code. Gagnez 10 🍌 bananes à chaque participation
               et suivez votre présence !
             </p>
           </div>
@@ -170,7 +175,7 @@ export default function Home() {
               <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-blue-600">3</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Gagnez de l'XP</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Gagnez des 🍌 bananes</h3>
               <p className="text-gray-600">
                 Complétez les cours et participez aux sessions pour gagner des points
               </p>
