@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
+// API URL - utilise l'URL du Worker en production ou localhost en dev
+const API_URL = 
+  typeof window !== 'undefined' 
+    ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787')
+    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
 
 export async function apiRequest<T>(
   endpoint: string,

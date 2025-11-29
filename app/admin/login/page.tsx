@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminLogin() {
@@ -9,6 +9,16 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Check if already logged in
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const adminAccess = sessionStorage.getItem('adminAccess');
+      if (adminAccess === 'true') {
+        router.push('/admin');
+      }
+    }
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -16,8 +26,11 @@ export default function AdminLogin() {
 
     if (password === '1234') {
       // Store admin access in sessionStorage
-      sessionStorage.setItem('adminAccess', 'true');
-      router.push('/admin');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('adminAccess', 'true');
+        // Force navigation
+        window.location.href = '/admin';
+      }
     } else {
       setError('Mot de passe incorrect');
       setLoading(false);

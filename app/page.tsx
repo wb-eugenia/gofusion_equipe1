@@ -36,20 +36,21 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <span className="text-2xl font-bold text-blue-600">🎮 Gamification App</span>
+              <span className="text-lg sm:text-2xl font-bold text-blue-600">🎮 Gamification App</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Link
                 href="/admin/login"
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition"
+                className="px-2 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-purple-700 transition"
               >
                 Admin
               </Link>
               <button
                 onClick={() => setShowRegisterModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+                className="px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg text-sm sm:text-base font-semibold hover:bg-blue-700 transition"
               >
-                Créer un compte
+                <span className="hidden sm:inline">Créer un compte</span>
+                <span className="sm:hidden">S'inscrire</span>
               </button>
             </div>
           </div>
@@ -57,25 +58,25 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
             Apprenez en vous amusant ! 🎯
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-base sm:text-xl md:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
             Transformez votre apprentissage en jeu avec notre plateforme de gamification.
             Gagnez des XP, débloquez des badges et montez dans le classement !
           </p>
-          <div className="flex justify-center space-x-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-4">
             <button
               onClick={() => setShowRegisterModal(true)}
-              className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold text-lg hover:bg-blue-700 transition shadow-lg"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg font-semibold text-base sm:text-lg hover:bg-blue-700 transition shadow-lg"
             >
               Commencer maintenant
             </button>
             <Link
               href="#features"
-              className="px-8 py-4 bg-white text-blue-600 rounded-lg font-semibold text-lg hover:bg-gray-50 transition shadow-lg border-2 border-blue-600"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-lg font-semibold text-base sm:text-lg hover:bg-gray-50 transition shadow-lg border-2 border-blue-600"
             >
               En savoir plus
             </Link>
@@ -84,11 +85,11 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-4xl font-bold text-center text-gray-900 mb-12">
+      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+        <h2 className="text-2xl sm:text-4xl font-bold text-center text-gray-900 mb-8 sm:mb-12">
           Fonctionnalités
         </h2>
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
             <div className="text-5xl mb-4 text-center">⭐</div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Système d'XP</h3>
@@ -219,7 +220,7 @@ export default function Home() {
       {/* Register Modal */}
       {showRegisterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="text-center mb-6">
               <h2 className="text-3xl font-bold text-gray-900 mb-2">
                 Créer un compte

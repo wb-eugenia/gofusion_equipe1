@@ -58,27 +58,27 @@ export default function StudentLayout({
               <div className="flex-shrink-0 flex items-center">
                 <span className="text-2xl font-bold text-blue-600">🎮 Gamification</span>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-4 lg:space-x-8">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-xs sm:text-sm font-medium ${
                       pathname === item.href
                         ? 'border-blue-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
-                    <span className="mr-2">{item.icon}</span>
-                    {item.label}
+                    <span className="mr-1 sm:mr-2">{item.icon}</span>
+                    <span className="hidden lg:inline">{item.label}</span>
                   </Link>
                 ))}
               </div>
             </div>
             <div className="flex items-center">
-              <div className="text-sm text-gray-700">
+              <div className="text-xs sm:text-sm text-gray-700">
                 <span className="font-semibold">{user.prenom}</span>
-                <span className="ml-2 text-blue-600">⭐ {user.xp} XP</span>
+                <span className="ml-1 sm:ml-2 text-blue-600">⭐ {user.xp} XP</span>
               </div>
             </div>
           </div>

@@ -1,11 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Pour Cloudflare Pages avec Workers
+  // Le Worker sera accessible via un proxy ou directement
   reactStrictMode: true,
-  output: 'standalone',
-  env: {
-    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787',
-  },
-}
+  swcMinify: true,
+};
 
-module.exports = nextConfig
-
+module.exports = nextConfig;

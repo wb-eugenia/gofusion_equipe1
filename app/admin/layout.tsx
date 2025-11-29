@@ -16,31 +16,42 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    // Check admin password access first
-    const adminAccess = sessionStorage.getItem('adminAccess');
-    if (!adminAccess) {
-      router.push('/admin/login');
+    // Only check if we're not already on the login page
+    if (pathname === '/admin/login') {
+      setLoading(false);
       return;
     }
 
-    // Try to get user if session exists, but don't require it
-    const sessionId = localStorage.getItem('sessionId');
-    if (sessionId) {
-      getUser()
-        .then((userData) => {
-          setUser({ ...userData, role: 'admin' });
-        })
-        .catch(() => {
-          // If user doesn't exist, still allow access with password
-          setUser({ prenom: 'Admin', role: 'admin', xp: 0 });
-        })
-        .finally(() => setLoading(false));
-    } else {
-      // No session but password is correct, allow access
+    // Check admin password access first (client-side only)
+    if (typeof window !== 'undefined') {
+      const adminAccess = sessionStorage.getItem('adminAccess');
+      if (!adminAccess) {
+        router.push('/admin/login');
+        return;
+      }
+
+      // Set user immediately (no need to wait for API call)
       setUser({ prenom: 'Admin', role: 'admin', xp: 0 });
       setLoading(false);
+
+      // Optionally try to get real user data in background (non-blocking)
+      const sessionId = localStorage.getItem('sessionId');
+      if (sessionId) {
+        getUser()
+          .then((userData) => {
+            setUser({ ...userData, role: 'admin' });
+          })
+          .catch(() => {
+            // Ignore errors, we already have a user
+          });
+      }
     }
-  }, [router]);
+  }, [router, pathname]);
+
+  // Don't render layout on login page
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
@@ -50,7 +61,13 @@ export default function AdminLayout({
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Vérification de l'accès...</div>
+      </div>
+    );
+  }
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: '⚙️' },
@@ -73,19 +90,19 @@ export default function AdminLayout({
               <div className="flex-shrink-0 flex items-center">
                 <span className="text-2xl font-bold text-purple-600">⚙️ Admin</span>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-4 lg:space-x-8">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-xs sm:text-sm font-medium ${
                       pathname === item.href
                         ? 'border-purple-500 text-gray-900'
                         : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
-                    <span className="mr-2">{item.icon}</span>
-                    {item.label}
+                    <span className="mr-1 sm:mr-2">{item.icon}</span>
+                    <span className="hidden lg:inline">{item.label}</span>
                   </Link>
                 ))}
               </div>

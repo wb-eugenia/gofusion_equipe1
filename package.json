@@ -18,9 +18,10 @@
     "check-data": "powershell -ExecutionPolicy Bypass -File ./scripts/check-data.ps1",
     "setup": "node scripts/setup.js",
     "prisma:studio": "drizzle-kit studio",
-    "deploy:pages": "npm run build && wrangler pages deploy .next",
+    "deploy:pages": "npm run build && wrangler pages deploy .next --project-name=gamification-app",
     "deploy:worker": "npm run worker:deploy",
-    "deploy:all": "npm run deploy:pages && npm run deploy:worker"
+    "deploy:all": "npm run deploy:worker && npm run deploy:pages",
+    "deploy:db": "npm run prisma:migrate"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20240425.0",

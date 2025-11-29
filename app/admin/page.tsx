@@ -29,11 +29,16 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     try {
-      const [kpiData, coursesData, sessionsData] = await Promise.all([
-        getKPI().catch(err => {
-          console.error('Error loading KPI:', err);
-          return null;
-        }),
+      // Load KPI first (most important)
+      const kpiData = await getKPI().catch(err => {
+        console.error('Error loading KPI:', err);
+        return { totalStudents: 0, totalXp: 0, activeCourses: 0, badgesUnlocked: 0 };
+      });
+      setKpi(kpiData);
+      setLoading(false); // Show page with KPI first
+      
+      // Load courses and sessions in parallel (less critical)
+      const [coursesData, sessionsData] = await Promise.all([
         getCourses().catch(err => {
           console.error('Error loading courses:', err);
           return [];
@@ -43,15 +48,12 @@ export default function AdminDashboard() {
           return [];
         }),
       ]);
-      setKpi(kpiData);
       setCourses(coursesData || []);
       setSessions(sessionsData || []);
       const active = (sessionsData || []).find((s: any) => s.isActive);
       setActiveSession(active);
     } catch (error) {
       console.error('Error loading data:', error);
-      alert('Erreur lors du chargement des données. Vérifiez la console.');
-    } finally {
       setLoading(false);
     }
   };
@@ -120,26 +122,26 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="px-4 py-6">
-      <div className="mb-6 flex justify-between items-center">
+    <div className="px-4 sm:px-6 py-4 sm:py-6">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">⚙️ Dashboard Admin</h1>
-          <p className="text-gray-600">Gérez les cours, sessions et consultez les statistiques</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">⚙️ Dashboard Admin</h1>
+          <p className="text-sm sm:text-base text-gray-600">Gérez les cours, sessions et consultez les statistiques</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingCourse(null);
               setCourseFormData({ titre: '', description: '', xpReward: 50 });
               setShowCourseModal(true);
             }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm sm:text-base"
           >
             + Nouveau Cours
           </button>
           <button
             onClick={() => setShowSessionModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm sm:text-base"
           >
             📱 Nouvelle Session
           </button>
@@ -152,7 +154,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Étudiants</p>
-              <p className="text-3xl font-bold text-gray-900">{kpi?.totalStudents || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {kpi ? kpi.totalStudents : <span className="text-gray-400">...</span>}
+              </p>
             </div>
             <div className="text-4xl">👥</div>
           </div>
@@ -161,7 +165,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">XP Total</p>
-              <p className="text-3xl font-bold text-gray-900">{kpi?.totalXp.toLocaleString() || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {kpi ? kpi.totalXp.toLocaleString() : <span className="text-gray-400">...</span>}
+              </p>
             </div>
             <div className="text-4xl">⭐</div>
           </div>
@@ -170,7 +176,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Cours Actifs</p>
-              <p className="text-3xl font-bold text-gray-900">{kpi?.activeCourses || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {kpi ? kpi.activeCourses : <span className="text-gray-400">...</span>}
+              </p>
             </div>
             <div className="text-4xl">📚</div>
           </div>
@@ -179,7 +187,9 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Badges Débloqués</p>
-              <p className="text-3xl font-bold text-gray-900">{kpi?.badgesUnlocked || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {kpi ? kpi.badgesUnlocked : <span className="text-gray-400">...</span>}
+              </p>
             </div>
             <div className="text-4xl">🎖️</div>
           </div>
@@ -188,25 +198,25 @@ export default function AdminDashboard() {
 
       {/* Active Session */}
       {activeSession && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">📱 Session Active</h2>
-              <p className="text-gray-700">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">📱 Session Active</h2>
+              <p className="text-sm sm:text-base text-gray-700">
                 <strong>Cours:</strong> {activeSession.course?.titre}
               </p>
-              <p className="text-gray-700">
+              <p className="text-sm sm:text-base text-gray-700">
                 <strong>Code:</strong> <code className="bg-white px-2 py-1 rounded">{activeSession.code}</code>
               </p>
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-xs sm:text-sm text-gray-600 mt-2">
                 Créée le {new Date(activeSession.createdAt).toLocaleString('fr-FR')}
               </p>
             </div>
-            <div className="text-center">
-              <div className="bg-white p-4 rounded-lg mb-3">
+            <div className="text-center w-full sm:w-auto">
+              <div className="bg-white p-3 sm:p-4 rounded-lg mb-3 inline-block">
                 <QRCodeSVG 
                   value={activeSession.code}
-                  size={200}
+                  size={150}
                   level="H"
                   includeMargin={true}
                 />
@@ -214,7 +224,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => handleStopSession(activeSession.id)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
               >
                 Arrêter
               </button>
@@ -255,8 +265,8 @@ export default function AdminDashboard() {
 
       {/* Course Modal */}
       {showCourseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">
               {editingCourse ? 'Modifier le cours' : 'Nouveau cours'}
             </h2>
