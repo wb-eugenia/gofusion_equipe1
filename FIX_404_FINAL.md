@@ -4,7 +4,7 @@
 
 ### 1. ✅ Route de base ajoutée au Worker
 Le Worker a maintenant une route `/` qui retourne les informations de l'API.
-
+ss
 ### 2. ✅ Cache Next.js supprimé
 Le cache `.next` a été supprimé pour forcer une recompilation complète.
 
