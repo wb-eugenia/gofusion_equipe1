@@ -152,3 +152,4 @@ Les deux sont des bases SQLite (D1) et fonctionnent de la même manière.
 
 ss
 
+salut 
