@@ -23,6 +23,12 @@ export default function StudentLayout({
       return;
     }
 
+    // Track session start
+    const sessionStartId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const startTime = Date.now();
+    localStorage.setItem('currentSessionId', sessionStartId);
+    localStorage.setItem('sessionStartTime', startTime.toString());
+
     getUser()
       .then(setUser)
       .catch(() => {
@@ -30,6 +36,39 @@ export default function StudentLayout({
         router.push('/');
       })
       .finally(() => setLoading(false));
+
+    // Track session end on page unload
+    const handleBeforeUnload = async () => {
+      const currentSessionId = localStorage.getItem('currentSessionId');
+      const sessionStartTime = localStorage.getItem('sessionStartTime');
+      if (currentSessionId && sessionStartTime) {
+        const duration = Math.round((Date.now() - parseInt(sessionStartTime)) / 1000);
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/student/session/track`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({
+              sessionId: currentSessionId,
+              startedAt: new Date(parseInt(sessionStartTime)),
+              endedAt: new Date(),
+              durationSeconds: duration,
+            }),
+            keepalive: true,
+          });
+        } catch (e) {
+          // Ignore errors on unload
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
+    };
   }, [router]);
 
   if (loading) {
@@ -45,6 +84,8 @@ export default function StudentLayout({
   const navItems = [
     { href: '/student/courses', label: 'Cours', icon: '📚' },
     { href: '/student/checkin', label: 'Check-in', icon: '📱' },
+    { href: '/student/duel/lobby', label: 'Duel', icon: '⚔️' },
+    { href: '/student/shop', label: 'Boutique', icon: '🛒' },
     { href: '/student/ranking', label: 'Classement', icon: '🏆' },
     { href: '/student/profile', label: 'Profil', icon: '👤' },
     { href: '/student/badges', label: 'Badges', icon: '🎖️' },

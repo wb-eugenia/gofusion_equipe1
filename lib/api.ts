@@ -65,6 +65,10 @@ export async function getUser() {
 }
 
 // Courses
+export async function getMatieres() {
+  return apiRequest<any[]>('/api/matieres');
+}
+
 export async function getCourses() {
   return apiRequest<any[]>('/api/courses');
 }
@@ -106,14 +110,28 @@ export async function getKPI() {
 }
 
 // Admin - Courses
-export async function createCourse(data: { titre: string; description: string; xpReward: number }) {
+export async function createCourse(data: { 
+  titre: string; 
+  description: string; 
+  matiereId?: string;
+  gameType?: 'quiz' | 'memory' | 'match';
+  theoreticalContent?: string;
+  xpReward: number;
+}) {
   return apiRequest<any>('/api/admin/courses', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updateCourse(courseId: string, data: Partial<{ titre: string; description: string; xpReward: number }>) {
+export async function updateCourse(courseId: string, data: Partial<{ 
+  titre: string; 
+  description: string; 
+  matiereId?: string;
+  gameType?: 'quiz' | 'memory' | 'match';
+  theoreticalContent?: string;
+  xpReward: number;
+}>) {
   return apiRequest<any>(`/api/admin/courses/${courseId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -218,6 +236,14 @@ export async function getSessionRanking(sessionId: string) {
 export async function startSessionQuiz(sessionId: string) {
   return apiRequest<{ success: boolean }>(`/api/admin/sessions/${sessionId}/start`, {
     method: 'POST',
+  });
+}
+
+// Student - Stress
+export async function submitStressLevel(courseId: string | null, levelBefore: number, levelAfter: number) {
+  return apiRequest<{ success: boolean }>('/api/student/stress', {
+    method: 'POST',
+    body: JSON.stringify({ courseId, levelBefore, levelAfter }),
   });
 }
 

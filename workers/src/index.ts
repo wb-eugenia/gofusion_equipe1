@@ -518,6 +518,9 @@ app.get('/api/matieres', async (c) => {
 const createCourseSchema = z.object({
   titre: z.string().min(1),
   description: z.string().min(1),
+  matiereId: z.string().optional(),
+  gameType: z.enum(['quiz', 'memory', 'match']).default('quiz'),
+  theoreticalContent: z.string().optional(),
   xpReward: z.number().int().min(1).default(50),
 });
 
@@ -588,6 +591,114 @@ app.delete('/api/admin/courses/:id', async (c) => {
   const db = drizzle(c.env.DB, { schema });
   
   await db.delete(schema.courses).where(eq(schema.courses.id, courseId));
+  
+  return c.json({ success: true });
+});
+
+// ========== QUESTIONS ROUTES ==========
+
+app.get('/api/admin/courses/:id/questions', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const courseId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const questions = await db
+    .select()
+    .from(schema.questions)
+    .where(eq(schema.questions.courseId, courseId))
+    .all();
+  
+  return c.json(questions);
+});
+
+const createQuestionSchema = z.object({
+  question: z.string().min(1),
+  type: z.enum(['multiple_choice', 'memory_pair', 'match_pair']),
+  options: z.string().optional(),
+  correctAnswer: z.string().optional(),
+  order: z.number().int().default(0),
+});
+
+app.post('/api/admin/courses/:id/questions', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const courseId = c.req.param('id');
+    const body = await c.req.json();
+    const data = createQuestionSchema.parse(body);
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify course exists
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    
+    const questionId = crypto.randomUUID();
+    
+    await db.insert(schema.questions).values({
+      id: questionId,
+      courseId,
+      ...data,
+      createdAt: new Date(),
+    });
+    
+    const question = await db.select().from(schema.questions).where(eq(schema.questions.id, questionId)).get();
+    
+    return c.json(question, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.put('/api/admin/questions/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const questionId = c.req.param('id');
+    const body = await c.req.json();
+    const data = createQuestionSchema.partial().parse(body);
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    await db
+      .update(schema.questions)
+      .set(data)
+      .where(eq(schema.questions.id, questionId));
+    
+    const question = await db.select().from(schema.questions).where(eq(schema.questions.id, questionId)).get();
+    
+    if (!question) {
+      return c.json({ error: 'Question not found' }, 404);
+    }
+    
+    return c.json(question);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/admin/questions/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const questionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  await db.delete(schema.questions).where(eq(schema.questions.id, questionId));
   
   return c.json({ success: true });
 });
@@ -849,6 +960,615 @@ app.get('/api/admin/sessions/:id/attendances', async (c) => {
     ...a.attendance,
     user: a.user,
   })));
+});
+
+// ========== STRESS ROUTES ==========
+
+app.post('/api/student/stress', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { courseId, levelBefore, levelAfter } = body;
+    
+    if (!levelBefore || !levelAfter || levelBefore < 1 || levelBefore > 10 || levelAfter < 1 || levelAfter > 10) {
+      return c.json({ error: 'Invalid stress levels' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    const stressId = crypto.randomUUID();
+    
+    await db.insert(schema.stressLevels).values({
+      id: stressId,
+      userId: user.id,
+      courseId: courseId || null,
+      levelBefore,
+      levelAfter,
+      createdAt: new Date(),
+    });
+    
+    return c.json({ success: true }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/admin/stress-stats', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  const allStress = await db.select().from(schema.stressLevels).all();
+  
+  // Group by course
+  const statsByCourse: Record<string, any> = {};
+  
+  for (const stress of allStress) {
+    const courseId = stress.courseId || 'unknown';
+    if (!statsByCourse[courseId]) {
+      statsByCourse[courseId] = {
+        courseId,
+        count: 0,
+        avgBefore: 0,
+        avgAfter: 0,
+        totalBefore: 0,
+        totalAfter: 0,
+      };
+    }
+    statsByCourse[courseId].count++;
+    statsByCourse[courseId].totalBefore += stress.levelBefore;
+    statsByCourse[courseId].totalAfter += stress.levelAfter;
+  }
+  
+  // Calculate averages
+  const stats = Object.values(statsByCourse).map((stat: any) => ({
+    courseId: stat.courseId,
+    count: stat.count,
+    avgBefore: Math.round((stat.totalBefore / stat.count) * 10) / 10,
+    avgAfter: Math.round((stat.totalAfter / stat.count) * 10) / 10,
+    change: Math.round(((stat.totalAfter - stat.totalBefore) / stat.count) * 10) / 10,
+  }));
+  
+  return c.json(stats);
+});
+
+// ========== SESSION TRACKING ==========
+
+app.post('/api/student/session/track', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { sessionId, startedAt, endedAt, durationSeconds } = body;
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if session exists
+    const existing = await db
+      .select()
+      .from(schema.userSessions)
+      .where(eq(schema.userSessions.id, sessionId))
+      .get();
+    
+    if (existing) {
+      // Update existing session
+      await db
+        .update(schema.userSessions)
+        .set({
+          endedAt: endedAt ? new Date(endedAt) : null,
+          durationSeconds: durationSeconds || null,
+        })
+        .where(eq(schema.userSessions.id, sessionId));
+    } else {
+      // Create new session
+      await db.insert(schema.userSessions).values({
+        id: sessionId,
+        userId: user.id,
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
+        endedAt: endedAt ? new Date(endedAt) : null,
+        durationSeconds: durationSeconds || null,
+      });
+    }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== SHOP ROUTES ==========
+
+app.get('/api/student/shop/items', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  const items = await db.select().from(schema.shopItems).all();
+  
+  // Get user purchases
+  const purchases = await db
+    .select()
+    .from(schema.userPurchases)
+    .where(eq(schema.userPurchases.userId, user.id))
+    .all();
+  
+  const purchasedItemIds = new Set(purchases.map(p => p.itemId));
+  
+  return c.json(items.map(item => ({
+    ...item,
+    purchased: purchasedItemIds.has(item.id),
+  })));
+});
+
+app.post('/api/student/shop/purchase', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { itemId } = body;
+    
+    if (!itemId) {
+      return c.json({ error: 'Item ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Get item
+    const item = await db.select().from(schema.shopItems).where(eq(schema.shopItems.id, itemId)).get();
+    if (!item) {
+      return c.json({ error: 'Item not found' }, 404);
+    }
+    
+    // Check if already purchased
+    const existingPurchase = await db
+      .select()
+      .from(schema.userPurchases)
+      .where(and(eq(schema.userPurchases.userId, user.id), eq(schema.userPurchases.itemId, itemId)))
+      .get();
+    
+    if (existingPurchase) {
+      return c.json({ error: 'Item already purchased' }, 400);
+    }
+    
+    // Check if user has enough bananas
+    if (user.xp < item.price) {
+      return c.json({ error: 'Insufficient bananas' }, 400);
+    }
+    
+    // Deduct price
+    await db
+      .update(schema.users)
+      .set({ xp: user.xp - item.price })
+      .where(eq(schema.users.id, user.id));
+    
+    // Create purchase
+    const purchaseId = crypto.randomUUID();
+    await db.insert(schema.userPurchases).values({
+      id: purchaseId,
+      userId: user.id,
+      itemId: item.id,
+      purchasedAt: new Date(),
+    });
+    
+    // If it's a skin, add to user_skins
+    if (item.type === 'skin') {
+      const skinId = crypto.randomUUID();
+      await db.insert(schema.userSkins).values({
+        id: skinId,
+        userId: user.id,
+        skinId: item.id,
+        isActive: false,
+        createdAt: new Date(),
+      });
+    }
+    
+    return c.json({ success: true }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/student/shop/purchases', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  const purchases = await db
+    .select({
+      purchase: schema.userPurchases,
+      item: schema.shopItems,
+    })
+    .from(schema.userPurchases)
+    .innerJoin(schema.shopItems, eq(schema.userPurchases.itemId, schema.shopItems.id))
+    .where(eq(schema.userPurchases.userId, user.id))
+    .all();
+  
+  return c.json(purchases.map(p => ({
+    ...p.purchase,
+    item: p.item,
+  })));
+});
+
+app.post('/api/student/shop/activate-skin', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { skinId } = body;
+    
+    if (!skinId) {
+      return c.json({ error: 'Skin ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify user owns this skin
+    const purchase = await db
+      .select()
+      .from(schema.userPurchases)
+      .where(and(eq(schema.userPurchases.userId, user.id), eq(schema.userPurchases.itemId, skinId)))
+      .get();
+    
+    if (!purchase) {
+      return c.json({ error: 'Skin not purchased' }, 404);
+    }
+    
+    // Deactivate all other skins
+    await db
+      .update(schema.userSkins)
+      .set({ isActive: false })
+      .where(eq(schema.userSkins.userId, user.id));
+    
+    // Activate this skin
+    const userSkin = await db
+      .select()
+      .from(schema.userSkins)
+      .where(and(eq(schema.userSkins.userId, user.id), eq(schema.userSkins.skinId, skinId)))
+      .get();
+    
+    if (userSkin) {
+      await db
+        .update(schema.userSkins)
+        .set({ isActive: true })
+        .where(eq(schema.userSkins.id, userSkin.id));
+    } else {
+      const newSkinId = crypto.randomUUID();
+      await db.insert(schema.userSkins).values({
+        id: newSkinId,
+        userId: user.id,
+        skinId: skinId,
+        isActive: true,
+        createdAt: new Date(),
+      });
+    }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== DUEL ROUTES ==========
+
+app.post('/api/student/duels', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { matiereId } = body;
+    
+    if (!matiereId) {
+      return c.json({ error: 'Matiere ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    const duelId = crypto.randomUUID();
+    
+    await db.insert(schema.duels).values({
+      id: duelId,
+      player1Id: user.id,
+      matiereId,
+      status: 'waiting',
+      createdAt: new Date(),
+    });
+    
+    const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    
+    return c.json(duel, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/student/duels/lobby', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get ALL waiting duels (not just user's)
+  const waitingDuels = await db
+    .select({
+      duel: schema.duels,
+      player1: schema.users,
+      matiere: schema.matieres,
+    })
+    .from(schema.duels)
+    .leftJoin(schema.users, eq(schema.duels.player1Id, schema.users.id))
+    .leftJoin(schema.matieres, eq(schema.duels.matiereId, schema.matieres.id))
+    .where(eq(schema.duels.status, 'waiting'))
+    .all();
+  
+  return c.json(waitingDuels.map(d => ({
+    ...d.duel,
+    player1: d.player1,
+    matiere: d.matiere,
+  })));
+});
+
+app.post('/api/student/duels/:id/join', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const duelId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    
+    if (!duel) {
+      return c.json({ error: 'Duel not found' }, 404);
+    }
+    
+    if (duel.status !== 'waiting') {
+      return c.json({ error: 'Duel is not waiting for players' }, 400);
+    }
+    
+    if (duel.player1Id === user.id) {
+      return c.json({ error: 'Cannot join your own duel' }, 400);
+    }
+    
+    if (duel.player2Id) {
+      return c.json({ error: 'Duel is already full' }, 400);
+    }
+    
+    // Get a course for this matiere
+    const course = await db
+      .select()
+      .from(schema.courses)
+      .where(eq(schema.courses.matiereId, duel.matiereId || ''))
+      .limit(1)
+      .get();
+    
+    if (!course) {
+      return c.json({ error: 'No course found for this matiere' }, 404);
+    }
+    
+    // Update duel with player2 and start
+    await db
+      .update(schema.duels)
+      .set({
+        player2Id: user.id,
+        courseId: course.id,
+        status: 'active',
+        startedAt: new Date(),
+      })
+      .where(eq(schema.duels.id, duelId));
+    
+    const updatedDuel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    
+    return c.json(updatedDuel);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/api/student/duels/:id/answer', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const duelId = c.req.param('id');
+    const body = await c.req.json();
+    const { questionId, answer, responseTimeMs } = body;
+    
+    if (!questionId || answer === undefined) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify duel is active and user is a player
+    const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    if (!duel || duel.status !== 'active') {
+      return c.json({ error: 'Duel is not active' }, 400);
+    }
+    
+    if (duel.player1Id !== user.id && duel.player2Id !== user.id) {
+      return c.json({ error: 'You are not a player in this duel' }, 403);
+    }
+    
+    // Get question
+    const question = await db.select().from(schema.questions).where(eq(schema.questions.id, questionId)).get();
+    if (!question) {
+      return c.json({ error: 'Question not found' }, 404);
+    }
+    
+    // Check if already answered
+    const existingAnswer = await db
+      .select()
+      .from(schema.duelAnswers)
+      .where(and(
+        eq(schema.duelAnswers.duelId, duelId),
+        eq(schema.duelAnswers.userId, user.id),
+        eq(schema.duelAnswers.questionId, questionId)
+      ))
+      .get();
+    
+    if (existingAnswer) {
+      return c.json({ error: 'Already answered this question' }, 400);
+    }
+    
+    // Check answer
+    const isCorrect = answer === question.correctAnswer;
+    
+    // Save answer
+    const answerId = crypto.randomUUID();
+    await db.insert(schema.duelAnswers).values({
+      id: answerId,
+      duelId,
+      userId: user.id,
+      questionId,
+      answer,
+      isCorrect,
+      answeredAt: new Date(),
+      responseTimeMs: responseTimeMs || null,
+    });
+    
+    return c.json({ success: true, isCorrect });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/student/duels/:id/status', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const duelId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const duel = await db
+    .select({
+      duel: schema.duels,
+      player1: schema.users,
+      course: schema.courses,
+    })
+    .from(schema.duels)
+    .leftJoin(schema.users, eq(schema.duels.player1Id, schema.users.id))
+    .leftJoin(schema.courses, eq(schema.duels.courseId, schema.courses.id))
+    .where(eq(schema.duels.id, duelId))
+    .get();
+  
+  // Get player2 separately to avoid join conflict
+  const player2 = duel?.duel.player2Id ? await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, duel.duel.player2Id))
+    .get() : null;
+  
+  if (!duel) {
+    return c.json({ error: 'Duel not found' }, 404);
+  }
+  
+  // Get scores
+  const player1Answers = await db
+    .select()
+    .from(schema.duelAnswers)
+    .where(and(eq(schema.duelAnswers.duelId, duelId), eq(schema.duelAnswers.userId, duel.duel.player1Id)))
+    .all();
+  
+  const player2Answers = duel.duel.player2Id ? await db
+    .select()
+    .from(schema.duelAnswers)
+    .where(and(eq(schema.duelAnswers.duelId, duelId), eq(schema.duelAnswers.userId, duel.duel.player2Id)))
+    .all() : [];
+  
+  const player1Score = player1Answers.filter(a => a.isCorrect).length;
+  const player2Score = player2Answers.filter(a => a.isCorrect).length;
+  
+  // Check if all questions answered
+  if (duel.course) {
+    const questions = await db
+      .select()
+      .from(schema.questions)
+      .where(eq(schema.questions.courseId, duel.course.id))
+      .all();
+    
+    const allAnswered = questions.every(q => 
+      player1Answers.some(a => a.questionId === q.id) &&
+      (duel.duel.player2Id ? player2Answers.some(a => a.questionId === q.id) : false)
+    );
+    
+    if (allAnswered && duel.duel.status === 'active') {
+      // Determine winner
+      let winnerId = null;
+      if (player1Score > player2Score) {
+        winnerId = duel.duel.player1Id;
+      } else if (player2Score > player1Score) {
+        winnerId = duel.duel.player2Id;
+      }
+      
+      // Update duel
+      await db
+        .update(schema.duels)
+        .set({
+          status: 'finished',
+          winnerId,
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.duels.id, duelId));
+      
+      // Give rewards
+      if (winnerId) {
+        const winner = await db.select().from(schema.users).where(eq(schema.users.id, winnerId)).get();
+        if (winner) {
+          await db
+            .update(schema.users)
+            .set({ xp: winner.xp + 50 }) // 50 bananas for winning
+            .where(eq(schema.users.id, winnerId));
+        }
+      }
+    }
+  }
+  
+  // Get matiere for the duel
+  const matiere = duel.duel.matiereId ? await db
+    .select()
+    .from(schema.matieres)
+    .where(eq(schema.matieres.id, duel.duel.matiereId))
+    .get() : null;
+  
+  return c.json({
+    ...duel.duel,
+    player1: duel.player1,
+    player2: player2,
+    course: duel.course,
+    matiere: matiere,
+    player1Score,
+    player2Score,
+  });
 });
 
 app.post('/api/student/sessions/checkin', async (c) => {

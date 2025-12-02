@@ -17,6 +17,8 @@ export default function AdminLayout({
     { href: '/admin', label: 'Dashboard', icon: '⚙️' },
     { href: '/admin/kpi', label: 'KPI', icon: '📊' },
     { href: '/admin/courses', label: 'Cours', icon: '📚' },
+    { href: '/admin/sessions', label: 'Sessions', icon: '📅' },
+    { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
     { href: '/admin/badges', label: 'Badges', icon: '🎖️' },
   ];
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { register } from '@/lib/api';
 import Link from 'next/link';
+import MonkeyProfessor from '@/components/MonkeyProfessor';
 
 export default function Home() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -36,11 +37,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <img 
-                src="/singes/gemini_generated_image_9dl7059dl7059dl7-removebg-preview_480.png" 
-                alt="Singe" 
-                className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-              />
+              <MonkeyProfessor size="small" />
               <span className="text-lg sm:text-2xl font-bold text-blue-600">🎮 Gamification App</span>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">

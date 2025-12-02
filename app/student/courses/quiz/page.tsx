@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getCourse, completeCourse } from '@/lib/api';
+import { getCourse, completeCourse, submitStressLevel } from '@/lib/api';
+import StressSlider from '@/components/StressSlider';
 
 export default function CourseQuizPage() {
   const searchParams = useSearchParams();
@@ -16,6 +17,11 @@ export default function CourseQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
+  const [showTheory, setShowTheory] = useState(true);
+  const [stressBefore, setStressBefore] = useState(5);
+  const [stressAfter, setStressAfter] = useState(5);
+  const [stressBeforeSubmitted, setStressBeforeSubmitted] = useState(false);
+  const [stressAfterSubmitted, setStressAfterSubmitted] = useState(false);
 
   useEffect(() => {
     if (courseId) {
@@ -110,7 +116,61 @@ export default function CourseQuizPage() {
   const totalQuestions = course.questions?.length || 0;
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
 
-  if (showResults) {
+  // Show stress after if results shown but not submitted
+  if (showResults && !stressAfterSubmitted) {
+    const correctAnswers = course.questions.filter((q: any) => answers[q.id] === q.correctAnswer).length;
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-6">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4 text-center">🎯 Résultats</h1>
+            <div className="text-6xl font-bold text-blue-600 mb-4 text-center">{score}%</div>
+            <p className="text-xl text-gray-700 mb-6 text-center">
+              {correctAnswers} / {totalQuestions} bonnes réponses
+            </p>
+            {score >= 50 ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <p className="text-green-800 font-semibold text-center">
+                  ✅ Félicitations ! Vous avez réussi le cours !
+                </p>
+              </div>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-red-800 font-semibold text-center">
+                  ❌ Score insuffisant. Il faut au moins 50% pour valider le cours.
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">📊 Niveau de stress après</h2>
+            <p className="text-gray-600 mb-6">
+              Indiquez votre niveau de stress maintenant que vous avez terminé
+            </p>
+            <StressSlider
+              value={stressAfter}
+              onChange={setStressAfter}
+              label="Niveau de stress après le cours"
+            />
+            <button
+              onClick={async () => {
+                setStressAfterSubmitted(true);
+                await submitStressLevel(courseId, stressBefore, stressAfter);
+                router.push('/student/courses');
+              }}
+              className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+            >
+              Terminer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showResults && stressAfterSubmitted) {
     const correctAnswers = course.questions.filter((q: any) => answers[q.id] === q.correctAnswer).length;
     
     return (
