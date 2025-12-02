@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, lt, sql } from 'drizzle-orm';
 import * as schema from '../../prisma/schema.d1';
 import { z } from 'zod';
 
@@ -510,9 +510,17 @@ app.get('/api/matieres', async (c) => {
   }
   
   const db = drizzle(c.env.DB, { schema });
-  const matieres = await db.select().from(schema.matieres).all();
   
-  return c.json(matieres);
+  // Get matieres that have at least one course
+  const matieresWithCourses = await db
+    .selectDistinct({
+      matiere: schema.matieres,
+    })
+    .from(schema.matieres)
+    .innerJoin(schema.courses, eq(schema.matieres.id, schema.courses.matiereId))
+    .all();
+  
+  return c.json(matieresWithCourses.map(m => m.matiere));
 });
 
 const createCourseSchema = z.object({
@@ -1271,35 +1279,85 @@ app.post('/api/student/shop/activate-skin', async (c) => {
 // ========== DUEL ROUTES ==========
 
 app.post('/api/student/duels', async (c) => {
-  const user = await getUser(c);
-  if (!user) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-  
   try {
+    const user = await getUser(c);
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
     const body = await c.req.json();
-    const { matiereId } = body;
+    const { matiereId, betAmount } = body;
     
     if (!matiereId) {
       return c.json({ error: 'Matiere ID is required' }, 400);
     }
     
+    if (betAmount === undefined || betAmount === null || betAmount === '') {
+      return c.json({ error: 'Bet amount is required' }, 400);
+    }
+    
+    const bet = parseInt(betAmount) || 0;
+    
+    if (bet <= 0) {
+      return c.json({ error: 'Bet amount must be greater than 0' }, 400);
+    }
+    
+    if (bet > user.xp) {
+      return c.json({ error: 'Insufficient bananas' }, 400);
+    }
+    
     const db = drizzle(c.env.DB, { schema });
+    
+    // Verify matiere exists
+    const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!matiere) {
+      return c.json({ error: 'Matiere not found' }, 404);
+    }
+    
+    // Verify at least one course exists for this matiere
+    const course = await db
+      .select()
+      .from(schema.courses)
+      .where(eq(schema.courses.matiereId, matiereId))
+      .limit(1)
+      .get();
+    
+    if (!course) {
+      return c.json({ error: 'No course found for this matiere' }, 404);
+    }
+    
     const duelId = crypto.randomUUID();
+    
+    // Deduct bet amount from user
+    await db
+      .update(schema.users)
+      .set({ xp: user.xp - bet })
+      .where(eq(schema.users.id, user.id));
     
     await db.insert(schema.duels).values({
       id: duelId,
       player1Id: user.id,
       matiereId,
       status: 'waiting',
+      betAmount: bet,
       createdAt: new Date(),
     });
     
     const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
     
+    if (!duel) {
+      // Refund if creation failed
+      await db
+        .update(schema.users)
+        .set({ xp: user.xp })
+        .where(eq(schema.users.id, user.id));
+      return c.json({ error: 'Failed to create duel' }, 500);
+    }
+    
     return c.json(duel, 201);
   } catch (error: any) {
-    return c.json({ error: error.message }, 400);
+    console.error('Error creating duel:', error);
+    return c.json({ error: error.message || 'Failed to create duel' }, 500);
   }
 });
 
@@ -1310,6 +1368,32 @@ app.get('/api/student/duels/lobby', async (c) => {
   }
   
   const db = drizzle(c.env.DB, { schema });
+  
+  // Clean up old waiting duels (older than 5 minutes)
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  const oldDuels = await db
+    .select()
+    .from(schema.duels)
+    .where(and(
+      eq(schema.duels.status, 'waiting'),
+      lt(schema.duels.createdAt, fiveMinutesAgo)
+    ))
+    .all();
+  
+  // Refund bananas and delete old duels
+  for (const oldDuel of oldDuels) {
+    if (oldDuel.betAmount > 0 && oldDuel.player1Id) {
+      const player1 = await db.select().from(schema.users).where(eq(schema.users.id, oldDuel.player1Id)).get();
+      if (player1) {
+        await db
+          .update(schema.users)
+          .set({ xp: player1.xp + oldDuel.betAmount })
+          .where(eq(schema.users.id, oldDuel.player1Id));
+      }
+    }
+    // Delete the duel (cascade will handle duel_answers)
+    await db.delete(schema.duels).where(eq(schema.duels.id, oldDuel.id));
+  }
   
   // Get ALL waiting duels (not just user's)
   const waitingDuels = await db
@@ -1359,6 +1443,11 @@ app.post('/api/student/duels/:id/join', async (c) => {
       return c.json({ error: 'Duel is already full' }, 400);
     }
     
+    // Check if user has enough bananas for the bet
+    if (duel.betAmount > user.xp) {
+      return c.json({ error: `Insufficient bananas. You need ${duel.betAmount} bananas to join this duel` }, 400);
+    }
+    
     // Get a course for this matiere
     const course = await db
       .select()
@@ -1371,6 +1460,12 @@ app.post('/api/student/duels/:id/join', async (c) => {
       return c.json({ error: 'No course found for this matiere' }, 404);
     }
     
+    // Deduct bet amount from player2 (betAmount is always > 0 now)
+    await db
+      .update(schema.users)
+      .set({ xp: user.xp - duel.betAmount })
+      .where(eq(schema.users.id, user.id));
+    
     // Update duel with player2 and start
     await db
       .update(schema.duels)
@@ -1382,9 +1477,39 @@ app.post('/api/student/duels/:id/join', async (c) => {
       })
       .where(eq(schema.duels.id, duelId));
     
-    const updatedDuel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    // Get updated duel with relations (avoid duplicate users join)
+    const updatedDuel = await db
+      .select({
+        duel: schema.duels,
+        player1: schema.users,
+        matiere: schema.matieres,
+        course: schema.courses,
+      })
+      .from(schema.duels)
+      .leftJoin(schema.users, eq(schema.duels.player1Id, schema.users.id))
+      .leftJoin(schema.matieres, eq(schema.duels.matiereId, schema.matieres.id))
+      .leftJoin(schema.courses, eq(schema.duels.courseId, schema.courses.id))
+      .where(eq(schema.duels.id, duelId))
+      .get();
     
-    return c.json(updatedDuel);
+    if (!updatedDuel) {
+      return c.json({ error: 'Failed to update duel' }, 500);
+    }
+    
+    // Get player2 separately to avoid join conflict
+    const player2Data = updatedDuel.duel.player2Id ? await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, updatedDuel.duel.player2Id))
+      .get() : null;
+    
+    return c.json({
+      ...updatedDuel.duel,
+      player1: updatedDuel.player1,
+      player2: player2Data,
+      matiere: updatedDuel.matiere,
+      course: updatedDuel.course,
+    });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -1401,26 +1526,40 @@ app.post('/api/student/duels/:id/answer', async (c) => {
     const body = await c.req.json();
     const { questionId, answer, responseTimeMs } = body;
     
-    if (!questionId || answer === undefined) {
-      return c.json({ error: 'Missing required fields' }, 400);
+    // Better validation
+    if (!questionId || questionId.trim() === '') {
+      return c.json({ error: 'Question ID is required' }, 400);
+    }
+    
+    if (answer === undefined || answer === null || answer === '') {
+      return c.json({ error: 'Answer is required' }, 400);
     }
     
     const db = drizzle(c.env.DB, { schema });
     
     // Verify duel is active and user is a player
     const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
-    if (!duel || duel.status !== 'active') {
-      return c.json({ error: 'Duel is not active' }, 400);
+    if (!duel) {
+      return c.json({ error: 'Duel not found' }, 404);
+    }
+    
+    if (duel.status !== 'active') {
+      return c.json({ error: `Duel is not active (status: ${duel.status})` }, 400);
     }
     
     if (duel.player1Id !== user.id && duel.player2Id !== user.id) {
       return c.json({ error: 'You are not a player in this duel' }, 403);
     }
     
-    // Get question
+    // Get question and verify it belongs to the duel's course
     const question = await db.select().from(schema.questions).where(eq(schema.questions.id, questionId)).get();
     if (!question) {
       return c.json({ error: 'Question not found' }, 404);
+    }
+    
+    // Verify question belongs to duel's course
+    if (duel.courseId && question.courseId !== duel.courseId) {
+      return c.json({ error: 'Question does not belong to this duel' }, 400);
     }
     
     // Check if already answered
@@ -1438,8 +1577,8 @@ app.post('/api/student/duels/:id/answer', async (c) => {
       return c.json({ error: 'Already answered this question' }, 400);
     }
     
-    // Check answer
-    const isCorrect = answer === question.correctAnswer;
+    // Check answer (convert both to string for comparison)
+    const isCorrect = String(answer) === String(question.correctAnswer);
     
     // Save answer
     const answerId = crypto.randomUUID();
@@ -1455,6 +1594,49 @@ app.post('/api/student/duels/:id/answer', async (c) => {
     });
     
     return c.json({ success: true, isCorrect });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/student/duels/:id', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const duelId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    const duel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    
+    if (!duel) {
+      return c.json({ error: 'Duel not found' }, 404);
+    }
+    
+    // Only the creator can delete their own duel
+    if (duel.player1Id !== user.id) {
+      return c.json({ error: 'You can only delete your own duels' }, 403);
+    }
+    
+    // Only waiting duels can be deleted
+    if (duel.status !== 'waiting') {
+      return c.json({ error: 'Only waiting duels can be deleted' }, 400);
+    }
+    
+    // Refund bananas if bet was placed
+    if (duel.betAmount > 0) {
+      await db
+        .update(schema.users)
+        .set({ xp: user.xp + duel.betAmount })
+        .where(eq(schema.users.id, user.id));
+    }
+    
+    // Delete the duel (cascade will handle duel_answers)
+    await db.delete(schema.duels).where(eq(schema.duels.id, duelId));
+    
+    return c.json({ success: true });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -1509,25 +1691,27 @@ app.get('/api/student/duels/:id/status', async (c) => {
   const player2Score = player2Answers.filter(a => a.isCorrect).length;
   
   // Check if all questions answered
-  if (duel.course) {
+  if (duel.course && duel.duel.status === 'active') {
     const questions = await db
       .select()
       .from(schema.questions)
       .where(eq(schema.questions.courseId, duel.course.id))
       .all();
     
-    const allAnswered = questions.every(q => 
-      player1Answers.some(a => a.questionId === q.id) &&
-      (duel.duel.player2Id ? player2Answers.some(a => a.questionId === q.id) : false)
-    );
+    const player1Finished = questions.every(q => player1Answers.some(a => a.questionId === q.id));
+    const player2Finished = duel.duel.player2Id ? questions.every(q => player2Answers.some(a => a.questionId === q.id)) : false;
     
-    if (allAnswered && duel.duel.status === 'active') {
-      // Determine winner
+    // Only finish the duel when BOTH players have answered all questions
+    if (player1Finished && player2Finished) {
+      // Determine winner - player with most points wins (no draw, highest score wins)
       let winnerId = null;
       if (player1Score > player2Score) {
         winnerId = duel.duel.player1Id;
       } else if (player2Score > player1Score) {
         winnerId = duel.duel.player2Id;
+      } else {
+        // In case of exact tie, player1 wins (or we could make it a draw, but user wants winner)
+        winnerId = duel.duel.player1Id;
       }
       
       // Update duel
@@ -1540,17 +1724,34 @@ app.get('/api/student/duels/:id/status', async (c) => {
         })
         .where(eq(schema.duels.id, duelId));
       
-      // Give rewards
-      if (winnerId) {
+      // Give rewards - winner gets all the bet bananas (2x betAmount)
+      if (winnerId && duel.duel.betAmount > 0) {
         const winner = await db.select().from(schema.users).where(eq(schema.users.id, winnerId)).get();
         if (winner) {
+          const totalWinnings = duel.duel.betAmount * 2; // Both players' bets
           await db
             .update(schema.users)
-            .set({ xp: winner.xp + 50 }) // 50 bananas for winning
+            .set({ xp: winner.xp + totalWinnings })
             .where(eq(schema.users.id, winnerId));
         }
       }
     }
+  }
+  
+  // Check if one player finished but not the other (for frontend display)
+  let waitingForOpponent = false;
+  if (duel.course && duel.duel.status === 'active') {
+    const questions = await db
+      .select()
+      .from(schema.questions)
+      .where(eq(schema.questions.courseId, duel.course.id))
+      .all();
+    
+    const player1Finished = questions.every(q => player1Answers.some(a => a.questionId === q.id));
+    const player2Finished = duel.duel.player2Id ? questions.every(q => player2Answers.some(a => a.questionId === q.id)) : false;
+    
+    // One player finished but not the other
+    waitingForOpponent = (player1Finished && !player2Finished) || (!player1Finished && player2Finished);
   }
   
   // Get matiere for the duel
@@ -1568,6 +1769,7 @@ app.get('/api/student/duels/:id/status', async (c) => {
     matiere: matiere,
     player1Score,
     player2Score,
+    waitingForOpponent,
   });
 });
 

@@ -147,6 +147,7 @@ export const duels = sqliteTable('duels', {
   courseId: text('course_id').references(() => courses.id, { onDelete: 'cascade' }),
   status: text('status').default('waiting').notNull(), // 'waiting' | 'active' | 'finished'
   winnerId: text('winner_id').references(() => users.id, { onDelete: 'set null' }),
+  betAmount: integer('bet_amount').default(0).notNull(), // Bananas bet by each player
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   startedAt: integer('started_at', { mode: 'timestamp' }),
   finishedAt: integer('finished_at', { mode: 'timestamp' }),

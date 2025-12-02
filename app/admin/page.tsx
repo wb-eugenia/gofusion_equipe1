@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getKPI, getCourses, createCourse, updateCourse, deleteCourse, createSession, getSessions, stopSession, startSessionQuiz } from '@/lib/api';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { usePopup } from '@/hooks/usePopup';
 
 const QRCodeSVG = dynamic(() => import('qrcode.react').then(mod => mod.QRCodeSVG), { ssr: false });
 
@@ -12,6 +13,7 @@ export default function AdminDashboard() {
   const [courses, setCourses] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showError, showSuccess, PopupComponent } = usePopup();
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
@@ -97,13 +99,13 @@ export default function AdminDashboard() {
       setEditingCourse(null);
       setCourseFormData({ titre: '', description: '', xpReward: 50 });
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de la sauvegarde');
     }
   };
 
   const handleCreateSession = async () => {
     if (!selectedCourseId) {
-      alert('Veuillez sélectionner un cours');
+      showError('Veuillez sélectionner un cours');
       return;
     }
     try {
@@ -112,7 +114,7 @@ export default function AdminDashboard() {
       setShowSessionModal(false);
       setSelectedCourseId('');
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de la création de la session');
     }
   };
 
@@ -120,9 +122,9 @@ export default function AdminDashboard() {
     try {
       await startSessionQuiz(sessionId);
       await loadData();
-      alert('Quiz lancé ! Les étudiants peuvent maintenant répondre.');
+      showSuccess('Quiz lancé ! Les étudiants peuvent maintenant répondre.');
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors du lancement du quiz');
     }
   };
 
@@ -131,7 +133,7 @@ export default function AdminDashboard() {
       await stopSession(sessionId);
       await loadData();
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de l\'arrêt de la session');
     }
   };
 
@@ -145,7 +147,9 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6">
+    <>
+      <PopupComponent />
+      <div className="px-4 sm:px-6 py-4 sm:py-6">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">⚙️ Dashboard Admin</h1>
@@ -418,6 +422,7 @@ export default function AdminDashboard() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

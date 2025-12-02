@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getCourses, createCourse, updateCourse, deleteCourse, getMatieres } from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
 import Link from 'next/link';
+import { usePopup } from '@/hooks/usePopup';
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function AdminCoursesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
+  const { showError, showConfirm, PopupComponent } = usePopup();
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
@@ -52,7 +54,7 @@ export default function AdminCoursesPage() {
       setEditingCourse(null);
       setFormData({ titre: '', description: '', matiereId: '', gameType: 'quiz', theoreticalContent: '', xpReward: 50 });
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de la sauvegarde');
     }
   };
 
@@ -70,13 +72,20 @@ export default function AdminCoursesPage() {
   };
 
   const handleDelete = async (courseId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours ?')) return;
-    try {
-      await deleteCourse(courseId);
-      await loadData();
-    } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
-    }
+    showConfirm(
+      'Êtes-vous sûr de vouloir supprimer ce cours ?',
+      async () => {
+        try {
+          await deleteCourse(courseId);
+          await loadData();
+        } catch (error: any) {
+          showError(error.message || 'Erreur lors de la suppression');
+        }
+      },
+      'Confirmer la suppression',
+      'Supprimer',
+      'Annuler'
+    );
   };
 
   if (loading) {
@@ -84,7 +93,9 @@ export default function AdminCoursesPage() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <>
+      <PopupComponent />
+      <div className="px-4 py-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Gestion des Cours</h1>
@@ -243,6 +254,7 @@ export default function AdminCoursesPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

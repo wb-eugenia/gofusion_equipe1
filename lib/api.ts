@@ -247,3 +247,10 @@ export async function submitStressLevel(courseId: string | null, levelBefore: nu
   });
 }
 
+// Student - Duels
+export async function deleteDuel(duelId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/duels/${duelId}`, {
+    method: 'DELETE',
+  });
+}
+

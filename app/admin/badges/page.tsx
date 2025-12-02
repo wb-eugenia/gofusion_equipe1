@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { getAdminBadges, createBadge, updateBadge, deleteBadge } from '@/lib/api';
+import { usePopup } from '@/hooks/usePopup';
 
 export default function AdminBadgesPage() {
   const [badges, setBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showError, showConfirm, PopupComponent } = usePopup();
   const [showModal, setShowModal] = useState(false);
   const [editingBadge, setEditingBadge] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -65,7 +67,7 @@ export default function AdminBadgesPage() {
         conditionValue: undefined,
       });
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de la sauvegarde');
     }
   };
 
@@ -83,13 +85,20 @@ export default function AdminBadgesPage() {
   };
 
   const handleDelete = async (badgeId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce badge ?')) return;
-    try {
-      await deleteBadge(badgeId);
-      await loadBadges();
-    } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
-    }
+    showConfirm(
+      'Êtes-vous sûr de vouloir supprimer ce badge ?',
+      async () => {
+        try {
+          await deleteBadge(badgeId);
+          await loadBadges();
+        } catch (error: any) {
+          showError(error.message || 'Erreur lors de la suppression');
+        }
+      },
+      'Confirmer la suppression',
+      'Supprimer',
+      'Annuler'
+    );
   };
 
   if (loading) {
@@ -97,8 +106,10 @@ export default function AdminBadgesPage() {
   }
 
   return (
-    <div className="px-4 py-6">
-      <div className="mb-6 flex justify-between items-center">
+    <>
+      <PopupComponent />
+      <div className="px-4 py-6">
+        <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">🎖️ Gestion des Badges</h1>
           <p className="text-gray-600">Créez et gérez les badges</p>
@@ -264,6 +275,7 @@ export default function AdminBadgesPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

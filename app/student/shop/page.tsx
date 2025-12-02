@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getUser } from '@/lib/api';
+import { usePopup } from '@/hooks/usePopup';
 
 async function getShopItems() {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/student/shop/items`, {
@@ -50,6 +51,7 @@ export default function ShopPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'skin' | 'powerup' | 'cosmetic'>('all');
+  const { showError, showSuccess, showConfirm, PopupComponent } = usePopup();
 
   useEffect(() => {
     loadData();
@@ -65,31 +67,37 @@ export default function ShopPage() {
       setUser(userData as any);
     } catch (error: any) {
       console.error('Error loading data:', error);
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors du chargement');
     } finally {
       setLoading(false);
     }
   };
 
   const handlePurchase = async (item: any) => {
-    if (!confirm(`Acheter "${item.name}" pour ${item.price} 🍌 bananes ?`)) return;
-    
-    try {
-      await purchaseItem(item.id);
-      alert('Achat réussi !');
-      await loadData();
-    } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
-    }
+    showConfirm(
+      `Acheter "${item.name}" pour ${item.price} 🍌 bananes ?`,
+      async () => {
+        try {
+          await purchaseItem(item.id);
+          showSuccess('Achat réussi !');
+          await loadData();
+        } catch (error: any) {
+          showError(error.message || 'Erreur lors de l\'achat');
+        }
+      },
+      'Confirmer l\'achat',
+      'Acheter',
+      'Annuler'
+    );
   };
 
   const handleActivateSkin = async (skinId: string) => {
     try {
       await activateSkin(skinId);
-      alert('Skin activé !');
+      showSuccess('Skin activé !');
       await loadData();
     } catch (error: any) {
-      alert(`Erreur: ${error.message}`);
+      showError(error.message || 'Erreur lors de l\'activation');
     }
   };
 
@@ -102,7 +110,9 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <>
+      <PopupComponent />
+      <div className="px-4 py-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">🛒 Boutique</h1>
         <div className="flex items-center gap-4">
@@ -210,6 +220,7 @@ export default function ShopPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
 
