@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClans, getClansByMatiere, getMyClans, joinClan, getMatieres, createClan } from '@/lib/api';
+import { getClans, getClansByMatiere, getMyClans, joinClan, getMatieres, createClan, leaveClan, getClanDetails } from '@/lib/api';
 import { usePopup } from '@/hooks/usePopup';
 
 export default function ClansPage() {
@@ -12,6 +12,9 @@ export default function ClansPage() {
   const [selectedMatiere, setSelectedMatiere] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [selectedClanDetails, setSelectedClanDetails] = useState<any>(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [createFormData, setCreateFormData] = useState({
     name: '',
     matiereId: '',
@@ -74,9 +77,21 @@ export default function ClansPage() {
         try {
           await joinClan(clan.id);
           showSuccess('Clan rejoint avec succès !');
+          // Attendre un peu pour que la base de données soit à jour
+          await new Promise(resolve => setTimeout(resolve, 500));
+          // Recharger toutes les données
+          setLoading(true);
           await loadData();
+          // Recharger aussi les clans disponibles
+          if (selectedMatiere !== 'all') {
+            await loadClansByMatiere(selectedMatiere);
+          } else {
+            await loadAllClans();
+          }
+          setLoading(false);
         } catch (error: any) {
           showError(error.message || 'Erreur lors de la jointure');
+          setLoading(false);
         }
       },
       'Confirmer la jointure',
@@ -103,8 +118,79 @@ export default function ClansPage() {
     }
   };
 
+  const handleLeaveClan = async (clan: any) => {
+    showConfirm(
+      `Quitter le clan "${clan.name}" ?`,
+      async () => {
+        try {
+          await leaveClan(clan.id);
+          showSuccess('Clan quitté avec succès !');
+          // Recharger toutes les données
+          await loadData();
+          // Recharger aussi les clans disponibles si on filtre par matière
+          if (selectedMatiere !== 'all') {
+            await loadClansByMatiere(selectedMatiere);
+          } else {
+            await loadAllClans();
+          }
+        } catch (error: any) {
+          showError(error.message || 'Erreur lors de la sortie du clan');
+        }
+      },
+      'Confirmer la sortie',
+      'Quitter',
+      'Annuler'
+    );
+  };
+
+  const handleViewMembers = async (clanId: string) => {
+    setLoadingMembers(true);
+    setShowMembersModal(true);
+    setSelectedClanDetails(null); // Reset avant de charger
+    try {
+      const details = await getClanDetails(clanId);
+      // Debug: vérifier la structure des données
+      if (!details.members) {
+        console.warn('No members property in details:', details);
+      } else if (!Array.isArray(details.members)) {
+        console.warn('Members is not an array:', details.members);
+      }
+      setSelectedClanDetails(details);
+    } catch (error: any) {
+      showError(error.message || 'Erreur lors du chargement des membres');
+      setShowMembersModal(false);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const formatDate = (timestamp: number | Date | string) => {
+    let date: Date;
+    if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else if (typeof timestamp === 'number') {
+      // Si c'est un timestamp en secondes (Unix), multiplier par 1000
+      // Si c'est déjà en millisecondes, utiliser directement
+      date = timestamp < 10000000000 ? new Date(timestamp * 1000) : new Date(timestamp);
+    } else {
+      date = timestamp;
+    }
+    if (isNaN(date.getTime())) {
+      return 'Date invalide';
+    }
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+  };
+
   const isInClan = (clanId: string) => {
-    return Object.values(myClans).some(clans => clans.some((c: any) => c.id === clanId));
+    if (!myClans || Object.keys(myClans).length === 0) return false;
+    return Object.values(myClans).some((clans: any) => {
+      if (!Array.isArray(clans)) return false;
+      return clans.some((c: any) => c && c.id === clanId);
+    });
   };
 
   if (loading) {
@@ -158,14 +244,39 @@ export default function ClansPage() {
                       {matiere?.nom || 'Matière inconnue'}
                     </h3>
                     {clans.map((clan: any) => (
-                      <div key={clan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                        <div>
-                          <p className="font-medium text-gray-900">{clan.name}</p>
-                          <p className="text-sm text-gray-600">{clan.description || 'Pas de description'}</p>
+                      <div key={clan.id} className="p-4 border border-gray-200 rounded-lg bg-white">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-semibold text-gray-900">{clan.name}</p>
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                clan.role === 'leader' 
+                                  ? 'bg-yellow-100 text-yellow-800' 
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {clan.role === 'leader' ? 'Leader' : 'Membre'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{clan.description || 'Pas de description'}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{clan.memberCount || 0} membres</span>
+                            </div>
+                          </div>
                         </div>
-                        <span className="text-sm text-blue-600">
-                          {clan.role === 'leader' ? 'Leader' : 'Membre'}
-                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleViewMembers(clan.id)}
+                            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                          >
+                            👥 Voir les membres
+                          </button>
+                          <button
+                            onClick={() => handleLeaveClan(clan)}
+                            className="flex-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm"
+                          >
+                            🚪 Quitter
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -197,27 +308,35 @@ export default function ClansPage() {
                     <div className="mb-3">
                       <h3 className="font-semibold text-gray-900 mb-1">{clan.name}</h3>
                       <p className="text-sm text-gray-600 mb-2">{clan.description || 'Pas de description'}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                         <span>{clan.matiere?.nom || 'Matière inconnue'}</span>
                         <span>•</span>
                         <span>{clan.memberCount || 0} membres</span>
                       </div>
                     </div>
-                    {alreadyMember ? (
+                    <div className="flex gap-2">
                       <button
-                        disabled
-                        className="w-full px-4 py-2 bg-gray-200 text-gray-600 rounded cursor-not-allowed"
+                        onClick={() => handleViewMembers(clan.id)}
+                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm"
                       >
-                        Déjà membre
+                        👥 Membres
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => handleJoinClan(clan)}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                      >
-                        Rejoindre
-                      </button>
-                    )}
+                      {alreadyMember ? (
+                        <button
+                          onClick={() => handleLeaveClan(clan)}
+                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition text-sm"
+                        >
+                          🚪 Quitter
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleJoinClan(clan)}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-sm"
+                        >
+                          Rejoindre
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -292,6 +411,95 @@ export default function ClansPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowMembersModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {loadingMembers ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Chargement des membres...</p>
+              </div>
+            ) : selectedClanDetails ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedClanDetails.name}</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedClanDetails.matiere?.nom || 'Matière inconnue'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowMembersModal(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                {selectedClanDetails.description && (
+                  <p className="text-gray-700 mb-4 pb-4 border-b">{selectedClanDetails.description}</p>
+                )}
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    Membres ({selectedClanDetails.members && Array.isArray(selectedClanDetails.members) ? selectedClanDetails.members.length : 0})
+                  </h3>
+                  {selectedClanDetails.members && Array.isArray(selectedClanDetails.members) && selectedClanDetails.members.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedClanDetails.members.map((member: any) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                              {member.prenom.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{member.prenom}</p>
+                              {member.joinedAt && (
+                                <p className="text-xs text-gray-500">
+                                  Rejoint le {formatDate(member.joinedAt)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            member.role === 'leader' 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {member.role === 'leader' ? '👑 Leader' : 'Membre'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">Aucun membre pour le moment</p>
+                  )}
+                </div>
+                <div className="mt-4 pt-4 border-t">
+                  <button
+                    onClick={() => setShowMembersModal(false)}
+                    className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Aucune information disponible</p>
+                <button
+                  onClick={() => setShowMembersModal(false)}
+                  className="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

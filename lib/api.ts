@@ -252,7 +252,7 @@ export async function getMyClans() {
 }
 
 export async function getClanDetails(clanId: string) {
-  return apiRequest<any>(`/api/student/clans/${clanId}`);
+  return apiRequest<any>(`/api/student/clans/details/${clanId}`);
 }
 
 export async function joinClan(clanId: string) {
@@ -399,6 +399,17 @@ export async function createClanWar(data: { matiereId: string; weekStart?: strin
 export async function finishClanWar(warId: string) {
   return apiRequest<{ success: boolean }>(`/api/admin/clan-wars/${warId}/finish`, {
     method: 'POST',
+  });
+}
+
+// Admin - Clan Members
+export async function getAdminClanMembers() {
+  return apiRequest<any[]>('/api/admin/clans/members');
+}
+
+export async function deleteClanMembership(membershipId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/clans/members/${membershipId}`, {
+    method: 'DELETE',
   });
 }
 

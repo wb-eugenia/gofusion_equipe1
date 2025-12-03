@@ -2127,39 +2127,67 @@ app.get('/api/student/clans', async (c) => {
   return c.json(clansWithMembers);
 });
 
-app.get('/api/student/clans/:matiereId', async (c) => {
+// IMPORTANT: Routes spécifiques doivent être AVANT les routes avec paramètres génériques
+// Route pour obtenir les détails d'un clan spécifique (doit être AVANT /:matiereId)
+app.get('/api/student/clans/details/:id', async (c) => {
   const user = await getUser(c);
   if (!user) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   
-  const matiereId = c.req.param('matiereId');
+  const clanId = c.req.param('id');
   const db = drizzle(c.env.DB, { schema });
   
-  // Get clans for this matiere
-  const clans = await db
+  // Get clan details
+  const clan = await db
     .select({
       clan: schema.clans,
+      matiere: schema.matieres,
     })
     .from(schema.clans)
-    .where(eq(schema.clans.matiereId, matiereId))
+    .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+    .where(eq(schema.clans.id, clanId))
+    .get();
+  
+  if (!clan) {
+    return c.json({ error: 'Clan not found' }, 404);
+  }
+  
+  // Get members
+  const members = await db
+    .select({
+      membership: schema.clanMembers,
+      user: schema.users,
+    })
+    .from(schema.clanMembers)
+    .innerJoin(schema.users, eq(schema.clanMembers.userId, schema.users.id))
+    .where(eq(schema.clanMembers.clanId, clanId))
     .all();
   
-  // Get member count for each clan
-  const clansWithMembers = await Promise.all(clans.map(async (c) => {
-    const memberCount = await db
-      .select()
-      .from(schema.clanMembers)
-      .where(eq(schema.clanMembers.clanId, c.clan.id))
-      .all();
-    
+  // Convert joinedAt to timestamp if it's a Date object
+  const membersData = members.map(m => {
+    let joinedAtValue: number | Date = m.membership.joinedAt;
+    // If joinedAt is a Date object, convert to timestamp (seconds)
+    if (joinedAtValue instanceof Date) {
+      joinedAtValue = Math.floor(joinedAtValue.getTime() / 1000);
+    } else if (typeof joinedAtValue === 'number') {
+      // Already a timestamp, but ensure it's in seconds (not milliseconds)
+      if (joinedAtValue > 10000000000) {
+        joinedAtValue = Math.floor(joinedAtValue / 1000);
+      }
+    }
     return {
-      ...c.clan,
-      memberCount: memberCount.length,
+      ...m.user,
+      role: m.membership.role,
+      joinedAt: joinedAtValue as number,
     };
-  }));
-  
-  return c.json(clansWithMembers);
+  });
+
+  return c.json({
+    ...clan.clan,
+    matiere: clan.matiere,
+    members: membersData,
+  });
 });
 
 app.get('/api/student/clans/my', async (c) => {
@@ -2201,51 +2229,7 @@ app.get('/api/student/clans/my', async (c) => {
   return c.json({ clansByMatiere });
 });
 
-app.get('/api/student/clans/:id', async (c) => {
-  const user = await getUser(c);
-  if (!user) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-  
-  const clanId = c.req.param('id');
-  const db = drizzle(c.env.DB, { schema });
-  
-  // Get clan details
-  const clan = await db
-    .select({
-      clan: schema.clans,
-      matiere: schema.matieres,
-    })
-    .from(schema.clans)
-    .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
-    .where(eq(schema.clans.id, clanId))
-    .get();
-  
-  if (!clan) {
-    return c.json({ error: 'Clan not found' }, 404);
-  }
-  
-  // Get members
-  const members = await db
-    .select({
-      membership: schema.clanMembers,
-      user: schema.users,
-    })
-    .from(schema.clanMembers)
-    .innerJoin(schema.users, eq(schema.clanMembers.userId, schema.users.id))
-    .where(eq(schema.clanMembers.clanId, clanId))
-    .all();
-  
-  return c.json({
-    ...clan.clan,
-    matiere: clan.matiere,
-    members: members.map(m => ({
-      ...m.user,
-      role: m.membership.role,
-      joinedAt: m.membership.joinedAt,
-    })),
-  });
-});
+// Cette route est maintenant dans la section CLAN WARS plus bas dans le fichier
 
 app.post('/api/student/clans/:id/join', async (c) => {
   const user = await getUser(c);
@@ -2277,22 +2261,19 @@ app.post('/api/student/clans/:id/join', async (c) => {
       return c.json({ error: 'Already a member of this clan' }, 400);
     }
     
-    // Check if user is already in a clan for this matiere
-    const existingClanForMatiere = await db
+    // Check if user is already in any clan (only one clan allowed total)
+    const existingClan = await db
       .select({
         membership: schema.clanMembers,
         clan: schema.clans,
       })
       .from(schema.clanMembers)
       .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
-      .where(and(
-        eq(schema.clanMembers.userId, user.id),
-        eq(schema.clans.matiereId, clan.matiereId)
-      ))
+      .where(eq(schema.clanMembers.userId, user.id))
       .get();
     
-    if (existingClanForMatiere) {
-      return c.json({ error: 'You are already in a clan for this matiere' }, 400);
+    if (existingClan) {
+      return c.json({ error: 'Vous êtes déjà dans un clan. Vous ne pouvez rejoindre qu\'un seul clan à la fois. Veuillez quitter votre clan actuel d\'abord.' }, 400);
     }
     
     // Join clan
@@ -2478,6 +2459,72 @@ app.delete('/api/admin/clans/:id', async (c) => {
     const db = drizzle(c.env.DB, { schema });
     
     await db.delete(schema.clans).where(eq(schema.clans.id, clanId));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/admin/clans/members', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Get all clan memberships with clan and user info
+    const memberships = await db
+      .select({
+        membership: schema.clanMembers,
+        clan: schema.clans,
+        user: schema.users,
+        matiere: schema.matieres,
+      })
+      .from(schema.clanMembers)
+      .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
+      .innerJoin(schema.users, eq(schema.clanMembers.userId, schema.users.id))
+      .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+      .all();
+    
+    const membersData = memberships.map(m => {
+      let joinedAtValue: number | Date = m.membership.joinedAt;
+      if (joinedAtValue instanceof Date) {
+        joinedAtValue = Math.floor(joinedAtValue.getTime() / 1000);
+      } else if (typeof joinedAtValue === 'number' && joinedAtValue > 10000000000) {
+        joinedAtValue = Math.floor(joinedAtValue / 1000);
+      }
+      return {
+        id: m.membership.id,
+        clanId: m.clan.id,
+        clanName: m.clan.name,
+        userId: m.user.id,
+        userName: m.user.prenom,
+        role: m.membership.role,
+        matiere: m.matiere?.nom || 'Inconnue',
+        joinedAt: joinedAtValue as number,
+      };
+    });
+    
+    return c.json(membersData);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/admin/clans/members/:membershipId', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const membershipId = c.req.param('membershipId');
+    const db = drizzle(c.env.DB, { schema });
+    
+    await db.delete(schema.clanMembers).where(eq(schema.clanMembers.id, membershipId));
     
     return c.json({ success: true });
   } catch (error: any) {
