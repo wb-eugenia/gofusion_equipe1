@@ -345,6 +345,20 @@ export async function deleteDuel(duelId: string) {
   });
 }
 
+export async function getDuelStats() {
+  return apiRequest<{
+    totalDuels: number;
+    finishedDuels: number;
+    wins: number;
+    losses: number;
+    winRate: number;
+    bananasWon: number;
+    bananasLost: number;
+    netBananas: number;
+    recentDuels: any[];
+  }>('/api/student/duels/stats');
+}
+
 // Student - Clan Wars
 export async function getCurrentClanWars(matiereId?: string) {
   const url = matiereId 

@@ -3528,6 +3528,70 @@ app.get('/api/student/duels/:id/status', async (c) => {
   });
 });
 
+app.get('/api/student/duels/stats', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all duels where user participated
+  const allDuels = await db
+    .select()
+    .from(schema.duels)
+    .where(or(
+      eq(schema.duels.player1Id, user.id),
+      eq(schema.duels.player2Id, user.id)
+    ))
+    .all();
+  
+  const finishedDuels = allDuels.filter(d => d.status === 'finished');
+  const wins = finishedDuels.filter(d => d.winnerId === user.id).length;
+  const losses = finishedDuels.length - wins;
+  const winRate = finishedDuels.length > 0 ? (wins / finishedDuels.length) * 100 : 0;
+  
+  // Calculate total bananas won/lost
+  let bananasWon = 0;
+  let bananasLost = 0;
+  
+  for (const duel of finishedDuels) {
+    if (duel.winnerId === user.id) {
+      bananasWon += duel.betAmount * 2; // Winner gets both bets
+    } else {
+      bananasLost += duel.betAmount; // Loser loses their bet
+    }
+  }
+  
+  // Get recent duels (last 5)
+  const recentDuels = finishedDuels
+    .sort((a, b) => {
+      const aDate = a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+      const bDate = b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
+      return bDate - aDate;
+    })
+    .slice(0, 5)
+    .map(duel => ({
+      id: duel.id,
+      matiereId: duel.matiereId,
+      betAmount: duel.betAmount,
+      winnerId: duel.winnerId,
+      finishedAt: duel.finishedAt,
+    }));
+  
+  return c.json({
+    totalDuels: allDuels.length,
+    finishedDuels: finishedDuels.length,
+    wins,
+    losses,
+    winRate: Math.round(winRate * 10) / 10,
+    bananasWon,
+    bananasLost,
+    netBananas: bananasWon - bananasLost,
+    recentDuels,
+  });
+});
+
 app.post('/api/student/sessions/checkin', async (c) => {
   const user = await getUser(c);
   if (!user) {
