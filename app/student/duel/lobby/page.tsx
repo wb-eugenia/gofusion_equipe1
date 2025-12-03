@@ -171,7 +171,7 @@ export default function DuelLobbyPage() {
     <div className="px-4 py-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">⚔️ Lobby de Duel</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Lobby de Duel</h1>
           <p className="text-gray-600">Affrontez d'autres joueurs en 1v1 !</p>
         </div>
         <button
@@ -201,7 +201,7 @@ export default function DuelLobbyPage() {
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
             <div className="flex items-center justify-center mb-4">
               <div className={`w-16 h-16 ${errorPopup.isInsufficientBananas ? 'bg-yellow-100' : 'bg-red-100'} rounded-full flex items-center justify-center`}>
-                <span className="text-3xl">{errorPopup.isInsufficientBananas ? '🍌' : '⚠️'}</span>
+                <span className="text-3xl">{errorPopup.isInsufficientBananas ? '🍌' : ''}</span>
               </div>
             </div>
             <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
@@ -229,7 +229,7 @@ export default function DuelLobbyPage() {
                     }}
                     className="w-full px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold flex items-center justify-center gap-2"
                   >
-                    🛒 Acheter des bananes
+                    Acheter des bananes
                   </button>
                   <button
                     onClick={() => {
@@ -238,7 +238,7 @@ export default function DuelLobbyPage() {
                     }}
                     className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center gap-2"
                   >
-                    📚 Faire des cours pour gagner des bananes
+                    Faire des cours pour gagner des bananes
                   </button>
                 </div>
                 <button
@@ -357,7 +357,7 @@ export default function DuelLobbyPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-xl font-semibold text-gray-900">
-                            ⚔️ {duel.matiere?.nom || 'Matière inconnue'}
+                            {duel.matiere?.nom || 'Matière inconnue'}
                           </h3>
                           {isMyDuel && (
                             <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
@@ -380,7 +380,7 @@ export default function DuelLobbyPage() {
                         )}
                         {duel.matiere && (
                           <p className="text-sm text-gray-500">
-                            📚 {duel.matiere.description || 'Testez vos connaissances'}
+                            {duel.matiere.description || 'Testez vos connaissances'}
                           </p>
                         )}
                       </div>

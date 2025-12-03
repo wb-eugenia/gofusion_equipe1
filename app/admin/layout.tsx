@@ -14,12 +14,12 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/admin', label: 'Dashboard', icon: '⚙️' },
-    { href: '/admin/courses', label: 'Cours', icon: '📚' },
-    { href: '/admin/sessions', label: 'Sessions', icon: '📅' },
-    { href: '/admin/shop', label: 'Shop', icon: '🛒' },
-    { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
-    { href: '/admin/badges', label: 'Badges', icon: '🎖️' },
+    { href: '/admin', label: 'Dashboard', icon: '' },
+    { href: '/admin/courses', label: 'Cours', icon: '' },
+    { href: '/admin/sessions', label: 'Sessions', icon: '' },
+    { href: '/admin/shop', label: 'Shop', icon: '' },
+    { href: '/admin/analytics', label: 'Analytics', icon: '' },
+    { href: '/admin/badges', label: 'Badges', icon: '' },
   ];
 
   const handleLogout = () => {
@@ -108,7 +108,7 @@ export default function AdminLayout({
             onClick={() => setSidebarOpen(false)}
             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <span className="mr-3">👁️</span>
+            <span className="mr-3"></span>
             Vue Étudiant
           </Link>
           <button
@@ -118,7 +118,7 @@ export default function AdminLayout({
             }}
             className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <span className="mr-3">🚪</span>
+            <span className="mr-3"></span>
             Déconnexion
           </button>
         </div>

@@ -25,7 +25,7 @@ export default function RankingPage() {
   };
 
   const handleProfileClick = (userId: string) => {
-    router.push(`/student/profile/${userId}`);
+    router.push(`/student/profile/view?userId=${userId}`);
   };
 
   if (loading) {
@@ -37,16 +37,13 @@ export default function RankingPage() {
   }
 
   const getMedal = (position: number) => {
-    if (position === 1) return '🥇';
-    if (position === 2) return '🥈';
-    if (position === 3) return '🥉';
     return `${position}.`;
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🏆 Classement</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Classement</h1>
         <p className="text-gray-600">Top 10 des étudiants</p>
       </div>
 

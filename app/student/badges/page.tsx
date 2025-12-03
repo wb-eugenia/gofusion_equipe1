@@ -34,7 +34,7 @@ export default function BadgesPage() {
   return (
     <div className="px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🎖️ Galerie de Badges</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Galerie de Badges</h1>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
           <div className="flex items-center justify-between">
             <div>

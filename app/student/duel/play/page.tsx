@@ -164,7 +164,7 @@ export default function DuelPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">⚔️ Duel en attente</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Duel en attente</h1>
             <p className="text-xl text-gray-700 mb-6">
               En attente d'un adversaire...
             </p>
@@ -197,11 +197,11 @@ export default function DuelPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">🏆 Duel terminé</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Duel terminé</h1>
             
             {isWinner ? (
               <div className="mb-6">
-                <p className="text-2xl text-green-600 mb-2">🎉 Vous avez gagné !</p>
+                <p className="text-2xl text-green-600 mb-2">Vous avez gagné !</p>
                 {duel.betAmount > 0 && (
                   <p className="text-lg text-yellow-600 font-semibold">
                     🍌 Vous avez gagné {duel.betAmount * 2} bananes !
@@ -210,7 +210,7 @@ export default function DuelPage() {
               </div>
             ) : (
               <div className="mb-6">
-                <p className="text-2xl text-red-600 mb-2">😔 Vous avez perdu</p>
+                <p className="text-2xl text-red-600 mb-2">Vous avez perdu</p>
                 {duel.betAmount > 0 && (
                   <p className="text-sm text-gray-600">
                     Vous avez perdu {duel.betAmount} bananes
@@ -309,7 +309,7 @@ export default function DuelPage() {
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                ⚔️ Duel - {duel.matiere?.nom || 'Matière'}
+                Duel - {duel.matiere?.nom || 'Matière'}
               </h1>
               <div className="flex justify-between items-center text-sm text-gray-600">
                 <span>Question {currentQuestionIndex + 1} / {totalQuestions}</span>
@@ -353,7 +353,7 @@ export default function DuelPage() {
               {(currentQuestion.type === 'memory_pair' || currentQuestion.type === 'match_pair') && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-yellow-800 mb-3">
-                    ⚠️ Ce type de jeu nécessite une interface spéciale.
+                    Ce type de jeu nécessite une interface spéciale.
                   </p>
                   <input
                     type="text"

@@ -44,7 +44,7 @@ export default function CoursesPage() {
         />
       </div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">📚 Mes Cours</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Mes Cours</h1>
         <p className="text-gray-600">
           Complétez les cours pour gagner des 🍌 bananes et débloquer des badges !
         </p>
@@ -71,7 +71,7 @@ export default function CoursesPage() {
                 </span>
                 {course.completed ? (
                   <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                    ✓ Complété
+                    Complété
                   </span>
                 ) : (
                   <button

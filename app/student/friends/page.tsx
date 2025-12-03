@@ -92,7 +92,7 @@ export default function FriendsPage() {
       <PopupComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">👥 Mes Amis</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mes Amis</h1>
           <p className="text-gray-600">Gérez vos amis et leurs demandes</p>
         </div>
 
@@ -171,7 +171,7 @@ export default function FriendsPage() {
                         <div className="flex-1">
                           <p
                             className="font-semibold text-gray-900 cursor-pointer hover:text-blue-600"
-                            onClick={() => router.push(`/student/profile/${friend.id}`)}
+                            onClick={() => router.push(`/student/profile/view?userId=${friend.id}`)}
                           >
                             {friend.prenom}
                           </p>

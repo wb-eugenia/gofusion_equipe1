@@ -114,7 +114,7 @@ export default function ShopPage() {
       <PopupComponent />
       <div className="px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🛒 Boutique</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Boutique</h1>
         <div className="flex items-center gap-4">
           <p className="text-gray-600">Votre solde:</p>
           <span className="text-2xl font-bold text-yellow-600">🍌 {user?.xp || 0} bananes</span>
@@ -179,7 +179,6 @@ export default function ShopPage() {
                   <img src={item.icon} alt={item.name} className="w-24 h-24 mx-auto object-contain" />
                 ) : (
                   <div className="w-24 h-24 mx-auto bg-gray-200 rounded-lg flex items-center justify-center text-4xl">
-                    {item.type === 'skin' ? '🐵' : item.type === 'powerup' ? '⚡' : '✨'}
                   </div>
                 )}
               </div>
@@ -190,7 +189,7 @@ export default function ShopPage() {
                 {item.purchased ? (
                   <div className="flex flex-col gap-2">
                     <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-medium">
-                      ✓ Acheté
+                      Acheté
                     </span>
                     {item.type === 'skin' && (
                       <button

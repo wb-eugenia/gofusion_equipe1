@@ -38,7 +38,7 @@ export default function Home() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <MonkeyProfessor size="small" />
-              <span className="text-lg sm:text-2xl font-bold text-blue-600">🎮 Gamification App</span>
+              <span className="text-lg sm:text-2xl font-bold text-blue-600">Gamification App</span>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link
@@ -63,7 +63,7 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
-            Apprenez en vous amusant ! 🎯
+            Apprenez en vous amusant !
           </h1>
           <p className="text-base sm:text-xl md:text-2xl text-gray-600 mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
             Transformez votre apprentissage en jeu avec notre plateforme de gamification.
@@ -93,7 +93,7 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
-            <div className="text-5xl mb-4 text-center">⭐</div>
+            <div className="text-5xl mb-4 text-center"></div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Système de Bananes 🍌</h3>
             <p className="text-gray-600 text-center">
               Gagnez des bananes en complétant des cours et en participant aux sessions.
@@ -101,7 +101,7 @@ export default function Home() {
             </p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
-            <div className="text-5xl mb-4 text-center">🎖️</div>
+            <div className="text-5xl mb-4 text-center"></div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Badges & Achievements</h3>
             <p className="text-gray-600 text-center">
               Débloquez des badges en atteignant des objectifs. De "Débutant" à "Légende",
@@ -109,7 +109,7 @@ export default function Home() {
             </p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
-            <div className="text-5xl mb-4 text-center">🏆</div>
+            <div className="text-5xl mb-4 text-center"></div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Classement</h3>
             <p className="text-gray-600 text-center">
               Comparez votre progression avec les autres étudiants. Montez dans le classement
@@ -117,7 +117,7 @@ export default function Home() {
             </p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
-            <div className="text-5xl mb-4 text-center">📚</div>
+            <div className="text-5xl mb-4 text-center"></div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Cours Interactifs</h3>
             <p className="text-gray-600 text-center">
               Accédez à une variété de cours et complétez-les pour gagner des 🍌 bananes.
@@ -125,7 +125,7 @@ export default function Home() {
             </p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition">
-            <div className="text-5xl mb-4 text-center">📱</div>
+            <div className="text-5xl mb-4 text-center"></div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Sessions QR Code</h3>
             <p className="text-gray-600 text-center">
               Participez aux sessions en scannant un QR code. Gagnez 10 🍌 bananes à chaque participation

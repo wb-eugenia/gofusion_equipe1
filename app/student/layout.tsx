@@ -105,13 +105,13 @@ export default function StudentLayout({
   if (!user) return null;
 
   const navItems = [
-    { href: '/student/courses', label: 'Cours', icon: '📚' },
-    { href: '/student/checkin', label: 'Check-in', icon: '📱' },
-    { href: '/student/duel/lobby', label: 'Duel', icon: '⚔️' },
-    { href: '/student/shop', label: 'Boutique', icon: '🛒' },
-    { href: '/student/ranking', label: 'Classement', icon: '🏆' },
-    { href: '/student/profile', label: 'Profil', icon: '👤' },
-    { href: '/student/badges', label: 'Badges', icon: '🎖️' },
+    { href: '/student/courses', label: 'Cours', icon: '' },
+    { href: '/student/checkin', label: 'Check-in', icon: '' },
+    { href: '/student/duel/lobby', label: 'Duel', icon: '' },
+    { href: '/student/shop', label: 'Boutique', icon: '' },
+    { href: '/student/ranking', label: 'Classement', icon: '' },
+    { href: '/student/profile', label: 'Profil', icon: '' },
+    { href: '/student/badges', label: 'Badges', icon: '' },
   ];
 
   return (
@@ -133,7 +133,7 @@ export default function StudentLayout({
       `}>
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-blue-600">🎮 Gamification</h2>
+          <h2 className="text-lg font-semibold text-blue-600">Gamification</h2>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"

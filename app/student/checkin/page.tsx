@@ -196,8 +196,8 @@ export default function CheckInPage() {
               <div className="mt-2 text-xs">
                 <p className="font-semibold mb-1">Comment autoriser la caméra :</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li><strong>Chrome/Edge :</strong> Cliquez sur l'icône 🔒 dans la barre d'adresse → Autoriser la caméra</li>
-                  <li><strong>Firefox :</strong> Cliquez sur l'icône 🔒 → Permissions → Autoriser la caméra</li>
+                  <li><strong>Chrome/Edge :</strong> Cliquez sur l'icône dans la barre d'adresse → Autoriser la caméra</li>
+                  <li><strong>Firefox :</strong> Cliquez sur l'icône → Permissions → Autoriser la caméra</li>
                   <li><strong>Safari :</strong> Safari → Préférences → Sites web → Caméra → Autoriser</li>
                   <li><strong>Mobile :</strong> Paramètres → Applications → Navigateur → Autorisations → Caméra</li>
                 </ul>

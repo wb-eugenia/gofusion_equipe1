@@ -122,7 +122,7 @@ export default function ViewProfilePage() {
             ← Retour
           </button>
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">👤 Profil de {profile.prenom}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Profil de {profile.prenom}</h1>
             {currentUser && currentUser.id !== userId && (
               <div>
                 {friendStatus === 'none' && (
@@ -140,7 +140,7 @@ export default function ViewProfilePage() {
                 )}
                 {friendStatus === 'friends' && (
                   <span className="px-4 py-2 bg-green-100 text-green-700 rounded-lg">
-                    ✓ Amis
+                    Amis
                   </span>
                 )}
               </div>
@@ -175,7 +175,7 @@ export default function ViewProfilePage() {
           {/* Skin Card */}
           {profile.activeSkin && (
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">🎨 Skin Actif</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Skin Actif</h2>
               <div className="flex items-center justify-center mb-3">
                 {profile.activeSkin.icon ? (
                   <img 
@@ -185,7 +185,6 @@ export default function ViewProfilePage() {
                   />
                 ) : (
                   <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center text-4xl">
-                    🎨
                   </div>
                 )}
               </div>

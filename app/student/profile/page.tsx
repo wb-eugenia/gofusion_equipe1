@@ -132,7 +132,7 @@ export default function ProfilePage() {
       <PopupComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">👤 Mon Profil</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mon Profil</h1>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -173,7 +173,7 @@ export default function ProfilePage() {
 
           {/* Skin Card */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">🎨 Mon Skin</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Mon Skin</h2>
             {activeSkin ? (
               <div className="mb-4">
                 <div className="flex items-center justify-center mb-3">
@@ -181,7 +181,6 @@ export default function ProfilePage() {
                     <img src={activeSkin.icon} alt={activeSkin.name} className="w-24 h-24 object-contain" />
                   ) : (
                     <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center text-4xl">
-                      🎨
                     </div>
                   )}
                 </div>
@@ -210,7 +209,7 @@ export default function ProfilePage() {
                         {skin.icon ? (
                           <img src={skin.icon} alt={skin.name} className="w-8 h-8 object-contain" />
                         ) : (
-                          <span className="text-xl">🎨</span>
+                          <span className="text-xl"></span>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{skin.name}</p>
@@ -253,7 +252,7 @@ export default function ProfilePage() {
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">
-              👥 Mes Amis ({friends.length})
+              Mes Amis ({friends.length})
             </h2>
             <button
               onClick={() => router.push('/student/friends')}
@@ -341,7 +340,7 @@ export default function ProfilePage() {
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">
-              🏰 Mes Clans
+              Mes Clans
             </h2>
             <button
               onClick={() => router.push('/student/clans')}
@@ -366,7 +365,7 @@ export default function ProfilePage() {
                           <p className="font-medium text-gray-900">{clan.name}</p>
                           <p className="text-sm text-gray-600">{clan.description || 'Pas de description'}</p>
                           <p className="text-xs text-gray-500">
-                            {clan.role === 'leader' ? '👑 Leader' : '👤 Membre'}
+                            {clan.role === 'leader' ? 'Leader' : 'Membre'}
                           </p>
                         </div>
                         <button

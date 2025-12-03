@@ -250,7 +250,7 @@ export default function AdminDashboard() {
               )}
               {activeSession.status === 'finished' && (
                 <p className="text-sm text-gray-700 mt-2 font-semibold">
-                  ✓ Session terminée.
+                  Session terminée.
                 </p>
               )}
             </div>

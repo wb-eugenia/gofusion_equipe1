@@ -92,7 +92,7 @@ export default function ClansPage() {
       <PopupComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">🏰 Clans</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Clans</h1>
           <p className="text-gray-600">Rejoignez un clan par matière pour collaborer avec d'autres étudiants</p>
         </div>
 
@@ -132,7 +132,7 @@ export default function ClansPage() {
                           <p className="text-sm text-gray-600">{clan.description || 'Pas de description'}</p>
                         </div>
                         <span className="text-sm text-blue-600">
-                          {clan.role === 'leader' ? '👑 Leader' : '👤 Membre'}
+                          {clan.role === 'leader' ? 'Leader' : 'Membre'}
                         </span>
                       </div>
                     ))}
