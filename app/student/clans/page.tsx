@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getClans, getClansByMatiere, getMyClans, joinClan, getMatieres } from '@/lib/api';
+import { getClans, getClansByMatiere, getMyClans, joinClan, getMatieres, createClan } from '@/lib/api';
 import { usePopup } from '@/hooks/usePopup';
 
 export default function ClansPage() {
@@ -11,6 +11,12 @@ export default function ClansPage() {
   const [matieres, setMatieres] = useState<any[]>([]);
   const [selectedMatiere, setSelectedMatiere] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    matiereId: '',
+    description: '',
+  });
   const { showError, showSuccess, PopupComponent, showConfirm } = usePopup();
   const router = useRouter();
 
@@ -79,6 +85,24 @@ export default function ClansPage() {
     );
   };
 
+  const handleCreateClan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createFormData.name || !createFormData.matiereId) {
+      showError('Le nom et la matière sont requis');
+      return;
+    }
+    
+    try {
+      await createClan(createFormData);
+      showSuccess('Clan créé avec succès ! Vous en êtes le leader.');
+      setShowCreateModal(false);
+      setCreateFormData({ name: '', matiereId: '', description: '' });
+      await loadData();
+    } catch (error: any) {
+      showError(error.message || 'Erreur lors de la création');
+    }
+  };
+
   const isInClan = (clanId: string) => {
     return Object.values(myClans).some(clans => clans.some((c: any) => c.id === clanId));
   };
@@ -110,7 +134,7 @@ export default function ClansPage() {
           <select
             value={selectedMatiere}
             onChange={(e) => setSelectedMatiere(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
           >
             <option value="all">Toutes les matières</option>
             {matieres.map((matiere) => (
@@ -153,9 +177,17 @@ export default function ClansPage() {
 
         {/* Available Clans */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Clans disponibles ({clans.length})
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Clans disponibles ({clans.length})
+            </h2>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
+            >
+              + Créer un clan
+            </button>
+          </div>
           {clans.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {clans.map((clan: any) => {
@@ -197,6 +229,72 @@ export default function ClansPage() {
           )}
         </div>
       </div>
+
+      {/* Create Clan Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Créer un clan</h2>
+            <form onSubmit={handleCreateClan}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nom du clan *</label>
+                <input
+                  type="text"
+                  required
+                  value={createFormData.name}
+                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
+                  placeholder="Ex: Les Champions"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Matière *</label>
+                <select
+                  required
+                  value={createFormData.matiereId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, matiereId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
+                >
+                  <option value="">Sélectionner une matière</option>
+                  {matieres.map((matiere) => (
+                    <option key={matiere.id} value={matiere.id}>
+                      {matiere.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description (optionnel)</label>
+                <textarea
+                  value={createFormData.description}
+                  onChange={(e) => setCreateFormData({ ...createFormData, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
+                  placeholder="Décrivez votre clan..."
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setCreateFormData({ name: '', matiereId: '', description: '' });
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  Créer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -108,18 +108,18 @@ export default function ClanWarsAdminPage() {
     try {
       setLoading(true);
       if (activeTab === 'config') {
-        const configData = await getClanWarsConfig();
+        const configData = await getClanWarsConfig() as Record<string, { value: string; description?: string }>;
         setConfig(configData);
       } else if (activeTab === 'stats') {
-        const statsData = await getClanWarsStats();
+        const statsData = await getClanWarsStats() as any;
         setStats(statsData);
       } else if (activeTab === 'wars') {
         const [warsData, matieresData] = await Promise.all([
           getClanWars(),
           getMatieres(),
         ]);
-        setWars(warsData);
-        setMatieres(matieresData);
+        setWars(warsData as any[]);
+        setMatieres(matieresData as any[]);
       }
     } catch (error: any) {
       showError(error.message || 'Erreur lors du chargement');
@@ -247,7 +247,7 @@ export default function ClanWarsAdminPage() {
                     setConfig({ ...config, wars_enabled: { ...config.wars_enabled, value: e.target.value } });
                     handleConfigUpdate('wars_enabled', e.target.value);
                   }}
-                  className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                 >
                   <option value="true">Activées</option>
                   <option value="false">Désactivées</option>
@@ -267,7 +267,7 @@ export default function ClanWarsAdminPage() {
                     setConfig({ ...config, auto_create_wars: { ...config.auto_create_wars, value: e.target.value } });
                     handleConfigUpdate('auto_create_wars', e.target.value);
                   }}
-                  className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                 >
                   <option value="true">Automatique</option>
                   <option value="false">Manuelle</option>
@@ -402,7 +402,7 @@ export default function ClanWarsAdminPage() {
                     required
                     value={warFormData.matiereId}
                     onChange={(e) => setWarFormData({ ...warFormData, matiereId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
                     <option value="">Sélectionner une matière</option>
                     {matieres.map((matiere) => (

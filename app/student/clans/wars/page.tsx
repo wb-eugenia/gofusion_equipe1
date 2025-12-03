@@ -33,10 +33,11 @@ export default function ClanWarsPage() {
         getMatieres().catch(() => []),
       ]);
       
-      if (warsData.war) {
-        setCurrentWars([warsData.war]);
-      } else if (warsData.wars) {
-        setCurrentWars(warsData.wars);
+      const warsDataTyped = warsData as { war?: any; wars?: any[] };
+      if (warsDataTyped.war) {
+        setCurrentWars([warsDataTyped.war]);
+      } else if (warsDataTyped.wars) {
+        setCurrentWars(warsDataTyped.wars);
       } else {
         setCurrentWars([]);
       }
@@ -92,7 +93,7 @@ export default function ClanWarsPage() {
           <select
             value={selectedMatiere}
             onChange={(e) => setSelectedMatiere(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
           >
             <option value="all">Toutes les matières</option>
             {matieres.map((matiere) => (

@@ -118,7 +118,7 @@ export default function SessionsPage() {
                   value={formData.courseId}
                   onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
                 >
                   <option value="">Sélectionner un cours</option>
                   {courses.map((course) => (
@@ -136,7 +136,7 @@ export default function SessionsPage() {
                 <select
                   value={formData.recurrenceType}
                   onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value as any, scheduledAt: '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
                 >
                   <option value="">Session unique programmée</option>
                   <option value="daily">Récurrente - Quotidienne</option>
@@ -166,7 +166,7 @@ export default function SessionsPage() {
                   <select
                     value={formData.recurrenceDay}
                     onChange={(e) => setFormData({ ...formData, recurrenceDay: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900"
                   >
                     <option value="0">Dimanche</option>
                     <option value="1">Lundi</option>

@@ -267,6 +267,13 @@ export async function leaveClan(clanId: string) {
   });
 }
 
+export async function createClan(data: { name: string; matiereId: string; description?: string }) {
+  return apiRequest<any>('/api/student/clans/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // Admin - Sessions
 export async function createSession(courseId: string) {
   return apiRequest<any>('/api/admin/sessions', {

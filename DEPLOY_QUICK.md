@@ -12,8 +12,29 @@ wrangler login
 
 ## 2. Déployer la base de données
 
+### Option A : Déploiement automatique (Recommandé)
+
+**Windows (PowerShell)** :
+```powershell
+npm run deploy:all:ps1
+```
+
+**Linux/Mac (Bash)** :
 ```bash
+chmod +x scripts/deploy-all.sh
+npm run deploy:all:sh
+```
+
+### Option B : Déploiement manuel
+
+```bash
+# Schéma principal
 npm run prisma:migrate
+
+# Migrations des guerres de clan (nouvelles)
+wrangler d1 execute gamification-db --file=./prisma/migrations/add-clans-system.sql
+wrangler d1 execute gamification-db --file=./prisma/migrations/add-clan-wars-system.sql
+wrangler d1 execute gamification-db --file=./prisma/migrations/add-clan-wars-config.sql
 ```
 
 ## 3. Déployer le Worker (API)

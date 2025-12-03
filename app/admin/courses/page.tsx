@@ -183,7 +183,7 @@ export default function AdminCoursesPage() {
                 <select
                   value={formData.matiereId}
                   onChange={(e) => setFormData({ ...formData, matiereId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900"
                 >
                   <option value="">Sélectionner une matière</option>
                   {matieres.map((matiere) => (
@@ -201,7 +201,7 @@ export default function AdminCoursesPage() {
                   value={formData.gameType}
                   onChange={(e) => setFormData({ ...formData, gameType: e.target.value as 'quiz' | 'memory' | 'match' })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900"
                 >
                   <option value="quiz">Quiz (Questions à choix multiples)</option>
                   <option value="memory">Memory (Paires de cartes)</option>

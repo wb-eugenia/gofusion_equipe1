@@ -2335,6 +2335,156 @@ app.post('/api/student/clans/:id/leave', async (c) => {
   }
 });
 
+app.post('/api/student/clans/create', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { name, matiereId, description } = body;
+    
+    if (!name || !matiereId) {
+      return c.json({ error: 'Name and matiereId are required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify matiere exists
+    const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!matiere) {
+      return c.json({ error: 'Matiere not found' }, 404);
+    }
+    
+    // Check if user is already in a clan for this matiere
+    const existingClanForMatiere = await db
+      .select({
+        membership: schema.clanMembers,
+        clan: schema.clans,
+      })
+      .from(schema.clanMembers)
+      .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
+      .where(and(
+        eq(schema.clanMembers.userId, user.id),
+        eq(schema.clans.matiereId, matiereId)
+      ))
+      .get();
+    
+    if (existingClanForMatiere) {
+      return c.json({ error: 'You are already in a clan for this matiere' }, 400);
+    }
+    
+    // Create clan
+    const clanId = crypto.randomUUID();
+    await db.insert(schema.clans).values({
+      id: clanId,
+      name,
+      matiereId,
+      description: description || null,
+      createdAt: new Date(),
+    });
+    
+    // Add creator as leader
+    const membershipId = crypto.randomUUID();
+    await db.insert(schema.clanMembers).values({
+      id: membershipId,
+      clanId,
+      userId: user.id,
+      role: 'leader',
+      joinedAt: new Date(),
+    });
+    
+    const clan = await db
+      .select({
+        clan: schema.clans,
+        matiere: schema.matieres,
+      })
+      .from(schema.clans)
+      .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+      .where(eq(schema.clans.id, clanId))
+      .get();
+    
+    return c.json({
+      ...clan?.clan,
+      matiere: clan?.matiere,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== ADMIN CLAN ROUTES ==========
+
+app.post('/api/admin/clans', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { name, matiereId, description } = body;
+    
+    if (!name || !matiereId) {
+      return c.json({ error: 'Name and matiereId are required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify matiere exists
+    const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!matiere) {
+      return c.json({ error: 'Matiere not found' }, 404);
+    }
+    
+    // Create clan
+    const clanId = crypto.randomUUID();
+    await db.insert(schema.clans).values({
+      id: clanId,
+      name,
+      matiereId,
+      description: description || null,
+      createdAt: new Date(),
+    });
+    
+    const clan = await db
+      .select({
+        clan: schema.clans,
+        matiere: schema.matieres,
+      })
+      .from(schema.clans)
+      .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+      .where(eq(schema.clans.id, clanId))
+      .get();
+    
+    return c.json({
+      ...clan?.clan,
+      matiere: clan?.matiere,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/admin/clans/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const clanId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    await db.delete(schema.clans).where(eq(schema.clans.id, clanId));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 // ========== CLAN WARS ROUTES ==========
 
 app.get('/api/student/clans/wars/current', async (c) => {

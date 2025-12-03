@@ -31,7 +31,15 @@ input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="number"],
-textarea {
+input[type="datetime-local"],
+textarea,
+select {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* Fix select option text color */
+select option {
   color: #111827 !important;
   background-color: #ffffff !important;
 }
