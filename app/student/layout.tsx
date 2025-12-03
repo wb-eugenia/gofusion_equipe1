@@ -12,7 +12,7 @@ export default function StudentLayout({
 }) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -71,6 +71,29 @@ export default function StudentLayout({
     };
   }, [router]);
 
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (sidebarOpen && !target.closest('.sidebar') && !target.closest('.burger-button')) {
+        setSidebarOpen(false);
+      }
+    };
+
+    if (sidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      // Prevent body scroll when sidebar is open on mobile
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -92,91 +115,117 @@ export default function StudentLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
-      {/* Singe décoratif en haut à droite */}
-      <div className="absolute top-4 right-4 z-10 hidden md:block">
-        <img 
-          src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
-          alt="Singe" 
-          className="w-20 h-20 object-contain animate-bounce"
-          style={{ animationDuration: '3s' }}
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
-      </div>
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <span className="text-2xl font-bold text-blue-600">🎮 Gamification</span>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-4 lg:space-x-8">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-xs sm:text-sm font-medium ${
-                      pathname === item.href
-                        ? 'border-blue-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                  >
-                    <span className="mr-1 sm:mr-2">{item.icon}</span>
-                    <span className="hidden lg:inline">{item.label}</span>
-                  </Link>
-                ))}
-              </div>
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        sidebar fixed lg:static inset-y-0 left-0 z-50
+        w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        flex flex-col
+      `}>
+        {/* Sidebar Header */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-blue-600">🎮 Gamification</h2>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            aria-label="Fermer le menu"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* User Info in Sidebar */}
+        <div className="px-4 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <img 
+                src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
+                alt="Singe" 
+                className="w-12 h-12 object-contain"
+              />
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="sm:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                aria-label="Menu"
-              >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {mobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </button>
-              <div className="text-xs sm:text-sm text-gray-700">
-                <span className="font-semibold">{user.prenom}</span>
-                <span className="ml-1 sm:ml-2 text-yellow-600">🍌 {user.xp} bananes</span>
-              </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{user.prenom}</p>
+              <p className="text-xs text-yellow-600">🍌 {user.xp} bananes</p>
             </div>
           </div>
         </div>
-        
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="sm:hidden border-t border-gray-200">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    pathname === item.href
-                      ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.label}
-                </Link>
-              ))}
+
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setSidebarOpen(false)}
+              className={`
+                flex items-center px-4 py-3 rounded-lg transition-colors
+                ${pathname === item.href
+                  ? 'bg-blue-100 text-blue-700 font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }
+              `}
+            >
+              <span className="mr-3 text-xl">{item.icon}</span>
+              <span className="text-sm font-medium">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* Burger Menu Button (Mobile) */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="burger-button lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            aria-label="Ouvrir le menu"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {/* Desktop Header - User Info */}
+          <div className="hidden lg:flex items-center gap-3 ml-auto">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-900">{user.prenom}</p>
+              <p className="text-xs text-yellow-600">🍌 {user.xp} bananes</p>
+            </div>
+            <img 
+              src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
+              alt="Singe" 
+              className="w-12 h-12 object-contain"
+            />
+          </div>
+
+          {/* Mobile Header - User Info */}
+          <div className="lg:hidden flex items-center gap-2 ml-auto">
+            <div className="text-right">
+              <p className="text-xs sm:text-sm font-semibold text-gray-900">{user.prenom}</p>
+              <p className="text-xs text-yellow-600">🍌 {user.xp}</p>
             </div>
           </div>
-        )}
-      </nav>
+        </header>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {children}
-      </main>
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
-

@@ -35,7 +35,7 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="px-4 py-6 relative">
+    <div className="p-4 sm:p-6 lg:p-8 relative">
       <div className="absolute top-4 right-4 hidden md:block">
         <img 
           src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" 

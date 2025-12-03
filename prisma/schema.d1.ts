@@ -164,6 +164,37 @@ export const duelAnswers = sqliteTable('duel_answers', {
   responseTimeMs: integer('response_time_ms'),
 });
 
+export const friendRequests = sqliteTable('friend_requests', {
+  id: text('id').primaryKey(),
+  fromUserId: text('from_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  toUserId: text('to_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status').default('pending').notNull(), // 'pending' | 'accepted' | 'rejected'
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const friendships = sqliteTable('friendships', {
+  id: text('id').primaryKey(),
+  user1Id: text('user1_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  user2Id: text('user2_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const clans = sqliteTable('clans', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  matiereId: text('matiere_id').notNull().references(() => matieres.id, { onDelete: 'cascade' }),
+  description: text('description'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const clanMembers = sqliteTable('clan_members', {
+  id: text('id').primaryKey(),
+  clanId: text('clan_id').notNull().references(() => clans.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role').default('member').notNull(), // 'leader' | 'member'
+  joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Course = typeof courses.$inferSelect;
@@ -177,4 +208,8 @@ export type NewSession = typeof sessions.$inferInsert;
 export type SessionAttendance = typeof sessionAttendances.$inferSelect;
 export type SessionQuizAnswer = typeof sessionQuizAnswers.$inferSelect;
 export type NewSessionQuizAnswer = typeof sessionQuizAnswers.$inferInsert;
+export type FriendRequest = typeof friendRequests.$inferSelect;
+export type Friendship = typeof friendships.$inferSelect;
+export type Clan = typeof clans.$inferSelect;
+export type ClanMember = typeof clanMembers.$inferSelect;
 

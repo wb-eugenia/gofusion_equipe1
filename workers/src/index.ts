@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, desc, asc, lt, sql } from 'drizzle-orm';
+import { eq, and, or, desc, asc, lt, sql, inArray } from 'drizzle-orm';
 import * as schema from '../../prisma/schema.d1';
 import { z } from 'zod';
 
@@ -205,6 +205,69 @@ app.get('/api/user', async (c) => {
       ...ub.badge,
       unlockedAt: ub.unlockedAt,
     })),
+  });
+});
+
+app.get('/api/student/profile/:userId', async (c) => {
+  const currentUser = await getUser(c);
+  if (!currentUser) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const userId = c.req.param('userId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get target user
+  const targetUser = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  if (!targetUser) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+  
+  // Get user badges
+  const userBadges = await db
+    .select({
+      badge: schema.badges,
+      unlockedAt: schema.userBadges.unlockedAt,
+    })
+    .from(schema.userBadges)
+    .innerJoin(schema.badges, eq(schema.userBadges.badgeId, schema.badges.id))
+    .where(eq(schema.userBadges.userId, userId))
+    .all();
+  
+  // Get completed courses count
+  const userProgress = await db
+    .select()
+    .from(schema.userProgress)
+    .where(eq(schema.userProgress.userId, userId))
+    .all();
+  const completedCoursesCount = userProgress.length;
+  
+  // Get active skin
+  const activeSkin = await db
+    .select({
+      userSkin: schema.userSkins,
+      item: schema.shopItems,
+    })
+    .from(schema.userSkins)
+    .innerJoin(schema.shopItems, eq(schema.userSkins.skinId, schema.shopItems.id))
+    .where(and(
+      eq(schema.userSkins.userId, userId),
+      eq(schema.userSkins.isActive, true)
+    ))
+    .get();
+  
+  // Return public profile (no sensitive data)
+  return c.json({
+    id: targetUser.id,
+    prenom: targetUser.prenom,
+    xp: targetUser.xp,
+    streakDays: targetUser.streakDays,
+    badges: userBadges.map(ub => ({
+      ...ub.badge,
+      unlockedAt: ub.unlockedAt,
+    })),
+    completedCoursesCount,
+    activeSkin: activeSkin?.item || null,
   });
 });
 
@@ -1308,6 +1371,52 @@ app.get('/api/student/shop/purchases', async (c) => {
   })));
 });
 
+app.get('/api/student/skins', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all skin purchases
+  const skinPurchases = await db
+    .select({
+      purchase: schema.userPurchases,
+      item: schema.shopItems,
+    })
+    .from(schema.userPurchases)
+    .innerJoin(schema.shopItems, eq(schema.userPurchases.itemId, schema.shopItems.id))
+    .where(and(
+      eq(schema.userPurchases.userId, user.id),
+      eq(schema.shopItems.type, 'skin')
+    ))
+    .all();
+  
+  // Get active skin
+  const activeSkin = await db
+    .select({
+      userSkin: schema.userSkins,
+      item: schema.shopItems,
+    })
+    .from(schema.userSkins)
+    .innerJoin(schema.shopItems, eq(schema.userSkins.skinId, schema.shopItems.id))
+    .where(and(
+      eq(schema.userSkins.userId, user.id),
+      eq(schema.userSkins.isActive, true)
+    ))
+    .get();
+  
+  return c.json({
+    skins: skinPurchases.map(p => ({
+      ...p.item,
+      purchased: true,
+      isActive: activeSkin?.userSkin.skinId === p.item.id,
+    })),
+    activeSkin: activeSkin?.item || null,
+  });
+});
+
 app.post('/api/student/shop/activate-skin', async (c) => {
   const user = await getUser(c);
   if (!user) {
@@ -1363,6 +1472,573 @@ app.post('/api/student/shop/activate-skin', async (c) => {
         createdAt: new Date(),
       });
     }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== FRIENDS ROUTES ==========
+
+app.get('/api/student/friends', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all friendships where user is either user1 or user2
+  const friendships = await db
+    .select()
+    .from(schema.friendships)
+    .where(or(
+      eq(schema.friendships.user1Id, user.id),
+      eq(schema.friendships.user2Id, user.id)
+    ))
+    .all();
+  
+  // Get friend IDs
+  const friendIds = friendships.map(f => 
+    f.user1Id === user.id ? f.user2Id : f.user1Id
+  );
+  
+  if (friendIds.length === 0) {
+    return c.json({ friends: [] });
+  }
+  
+  // Get friend users
+  const friends = await db
+    .select()
+    .from(schema.users)
+    .where(inArray(schema.users.id, friendIds))
+    .all();
+  
+  return c.json({ friends });
+});
+
+app.get('/api/student/friends/requests', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get received requests (pending)
+  const receivedRequests = await db
+    .select({
+      request: schema.friendRequests,
+      fromUser: schema.users,
+    })
+    .from(schema.friendRequests)
+    .innerJoin(schema.users, eq(schema.friendRequests.fromUserId, schema.users.id))
+    .where(and(
+      eq(schema.friendRequests.toUserId, user.id),
+      eq(schema.friendRequests.status, 'pending')
+    ))
+    .all();
+  
+  // Get sent requests (pending)
+  const sentRequests = await db
+    .select({
+      request: schema.friendRequests,
+      toUser: schema.users,
+    })
+    .from(schema.friendRequests)
+    .innerJoin(schema.users, eq(schema.friendRequests.toUserId, schema.users.id))
+    .where(and(
+      eq(schema.friendRequests.fromUserId, user.id),
+      eq(schema.friendRequests.status, 'pending')
+    ))
+    .all();
+  
+  return c.json({
+    received: receivedRequests.map(r => ({
+      ...r.request,
+      fromUser: r.fromUser,
+    })),
+    sent: sentRequests.map(r => ({
+      ...r.request,
+      toUser: r.toUser,
+    })),
+  });
+});
+
+app.post('/api/student/friends/request', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { toUserId } = body;
+    
+    if (!toUserId) {
+      return c.json({ error: 'toUserId is required' }, 400);
+    }
+    
+    if (toUserId === user.id) {
+      return c.json({ error: 'Cannot send friend request to yourself' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if target user exists
+    const targetUser = await db.select().from(schema.users).where(eq(schema.users.id, toUserId)).get();
+    if (!targetUser) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+    
+    // Check if already friends
+    const existingFriendship = await db
+      .select()
+      .from(schema.friendships)
+      .where(or(
+        and(eq(schema.friendships.user1Id, user.id), eq(schema.friendships.user2Id, toUserId)),
+        and(eq(schema.friendships.user1Id, toUserId), eq(schema.friendships.user2Id, user.id))
+      ))
+      .get();
+    
+    if (existingFriendship) {
+      return c.json({ error: 'Already friends' }, 400);
+    }
+    
+    // Check if request already exists
+    const existingRequest = await db
+      .select()
+      .from(schema.friendRequests)
+      .where(or(
+        and(
+          eq(schema.friendRequests.fromUserId, user.id),
+          eq(schema.friendRequests.toUserId, toUserId),
+          eq(schema.friendRequests.status, 'pending')
+        ),
+        and(
+          eq(schema.friendRequests.fromUserId, toUserId),
+          eq(schema.friendRequests.toUserId, user.id),
+          eq(schema.friendRequests.status, 'pending')
+        )
+      ))
+      .get();
+    
+    if (existingRequest) {
+      return c.json({ error: 'Friend request already exists' }, 400);
+    }
+    
+    // Create friend request
+    const requestId = crypto.randomUUID();
+    await db.insert(schema.friendRequests).values({
+      id: requestId,
+      fromUserId: user.id,
+      toUserId,
+      status: 'pending',
+      createdAt: new Date(),
+    });
+    
+    return c.json({ success: true, requestId }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/api/student/friends/accept/:requestId', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const requestId = c.req.param('requestId');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Get request
+    const request = await db
+      .select()
+      .from(schema.friendRequests)
+      .where(and(
+        eq(schema.friendRequests.id, requestId),
+        eq(schema.friendRequests.toUserId, user.id),
+        eq(schema.friendRequests.status, 'pending')
+      ))
+      .get();
+    
+    if (!request) {
+      return c.json({ error: 'Request not found or already processed' }, 404);
+    }
+    
+    // Update request status
+    await db
+      .update(schema.friendRequests)
+      .set({ status: 'accepted' })
+      .where(eq(schema.friendRequests.id, requestId));
+    
+    // Create friendship (ensure user1Id < user2Id for consistency)
+    const user1Id = request.fromUserId < request.toUserId ? request.fromUserId : request.toUserId;
+    const user2Id = request.fromUserId < request.toUserId ? request.toUserId : request.fromUserId;
+    
+    const friendshipId = crypto.randomUUID();
+    await db.insert(schema.friendships).values({
+      id: friendshipId,
+      user1Id,
+      user2Id,
+      createdAt: new Date(),
+    });
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/api/student/friends/reject/:requestId', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const requestId = c.req.param('requestId');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Update request status
+    await db
+      .update(schema.friendRequests)
+      .set({ status: 'rejected' })
+      .where(and(
+        eq(schema.friendRequests.id, requestId),
+        eq(schema.friendRequests.toUserId, user.id),
+        eq(schema.friendRequests.status, 'pending')
+      ));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/student/friends/:friendId', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const friendId = c.req.param('friendId');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Delete friendship
+    await db
+      .delete(schema.friendships)
+      .where(or(
+        and(eq(schema.friendships.user1Id, user.id), eq(schema.friendships.user2Id, friendId)),
+        and(eq(schema.friendships.user1Id, friendId), eq(schema.friendships.user2Id, user.id))
+      ));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/student/friends/:friendId/activity', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const friendId = c.req.param('friendId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Verify friendship
+  const friendship = await db
+    .select()
+    .from(schema.friendships)
+    .where(or(
+      and(eq(schema.friendships.user1Id, user.id), eq(schema.friendships.user2Id, friendId)),
+      and(eq(schema.friendships.user1Id, friendId), eq(schema.friendships.user2Id, user.id))
+    ))
+    .get();
+  
+  if (!friendship) {
+    return c.json({ error: 'Not friends' }, 403);
+  }
+  
+  // Get friend's recent activity
+  const recentCourses = await db
+    .select({
+      progress: schema.userProgress,
+      course: schema.courses,
+    })
+    .from(schema.userProgress)
+    .innerJoin(schema.courses, eq(schema.userProgress.courseId, schema.courses.id))
+    .where(eq(schema.userProgress.userId, friendId))
+    .orderBy(desc(schema.userProgress.completedAt))
+    .limit(5)
+    .all();
+  
+  // Get friend's recent duel wins
+  const recentDuelWins = await db
+    .select()
+    .from(schema.duels)
+    .where(and(
+      eq(schema.duels.winnerId, friendId),
+      eq(schema.duels.status, 'finished')
+    ))
+    .orderBy(desc(schema.duels.finishedAt))
+    .limit(5)
+    .all();
+  
+  return c.json({
+    recentCourses: recentCourses.map(rc => ({
+      course: rc.course,
+      completedAt: rc.progress.completedAt,
+    })),
+    recentDuelWins: recentDuelWins.length,
+  });
+});
+
+// ========== CLANS ROUTES ==========
+
+app.get('/api/student/clans', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all clans with their matiere
+  const clans = await db
+    .select({
+      clan: schema.clans,
+      matiere: schema.matieres,
+    })
+    .from(schema.clans)
+    .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+    .all();
+  
+  // Get member count for each clan
+  const clansWithMembers = await Promise.all(clans.map(async (c) => {
+    const memberCount = await db
+      .select()
+      .from(schema.clanMembers)
+      .where(eq(schema.clanMembers.clanId, c.clan.id))
+      .all();
+    
+    return {
+      ...c.clan,
+      matiere: c.matiere,
+      memberCount: memberCount.length,
+    };
+  }));
+  
+  return c.json(clansWithMembers);
+});
+
+app.get('/api/student/clans/:matiereId', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const matiereId = c.req.param('matiereId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get clans for this matiere
+  const clans = await db
+    .select({
+      clan: schema.clans,
+    })
+    .from(schema.clans)
+    .where(eq(schema.clans.matiereId, matiereId))
+    .all();
+  
+  // Get member count for each clan
+  const clansWithMembers = await Promise.all(clans.map(async (c) => {
+    const memberCount = await db
+      .select()
+      .from(schema.clanMembers)
+      .where(eq(schema.clanMembers.clanId, c.clan.id))
+      .all();
+    
+    return {
+      ...c.clan,
+      memberCount: memberCount.length,
+    };
+  }));
+  
+  return c.json(clansWithMembers);
+});
+
+app.get('/api/student/clans/my', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get user's clans
+  const userClans = await db
+    .select({
+      membership: schema.clanMembers,
+      clan: schema.clans,
+      matiere: schema.matieres,
+    })
+    .from(schema.clanMembers)
+    .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
+    .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+    .where(eq(schema.clanMembers.userId, user.id))
+    .all();
+  
+  // Group by matiere
+  const clansByMatiere: Record<string, any[]> = {};
+  userClans.forEach(uc => {
+    const matiereId = uc.clan.matiereId;
+    if (!clansByMatiere[matiereId]) {
+      clansByMatiere[matiereId] = [];
+    }
+    clansByMatiere[matiereId].push({
+      ...uc.clan,
+      matiere: uc.matiere,
+      role: uc.membership.role,
+      joinedAt: uc.membership.joinedAt,
+    });
+  });
+  
+  return c.json({ clansByMatiere });
+});
+
+app.get('/api/student/clans/:id', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const clanId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get clan details
+  const clan = await db
+    .select({
+      clan: schema.clans,
+      matiere: schema.matieres,
+    })
+    .from(schema.clans)
+    .leftJoin(schema.matieres, eq(schema.clans.matiereId, schema.matieres.id))
+    .where(eq(schema.clans.id, clanId))
+    .get();
+  
+  if (!clan) {
+    return c.json({ error: 'Clan not found' }, 404);
+  }
+  
+  // Get members
+  const members = await db
+    .select({
+      membership: schema.clanMembers,
+      user: schema.users,
+    })
+    .from(schema.clanMembers)
+    .innerJoin(schema.users, eq(schema.clanMembers.userId, schema.users.id))
+    .where(eq(schema.clanMembers.clanId, clanId))
+    .all();
+  
+  return c.json({
+    ...clan.clan,
+    matiere: clan.matiere,
+    members: members.map(m => ({
+      ...m.user,
+      role: m.membership.role,
+      joinedAt: m.membership.joinedAt,
+    })),
+  });
+});
+
+app.post('/api/student/clans/:id/join', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const clanId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Get clan
+    const clan = await db.select().from(schema.clans).where(eq(schema.clans.id, clanId)).get();
+    if (!clan) {
+      return c.json({ error: 'Clan not found' }, 404);
+    }
+    
+    // Check if already member
+    const existingMember = await db
+      .select()
+      .from(schema.clanMembers)
+      .where(and(
+        eq(schema.clanMembers.clanId, clanId),
+        eq(schema.clanMembers.userId, user.id)
+      ))
+      .get();
+    
+    if (existingMember) {
+      return c.json({ error: 'Already a member of this clan' }, 400);
+    }
+    
+    // Check if user is already in a clan for this matiere
+    const existingClanForMatiere = await db
+      .select({
+        membership: schema.clanMembers,
+        clan: schema.clans,
+      })
+      .from(schema.clanMembers)
+      .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
+      .where(and(
+        eq(schema.clanMembers.userId, user.id),
+        eq(schema.clans.matiereId, clan.matiereId)
+      ))
+      .get();
+    
+    if (existingClanForMatiere) {
+      return c.json({ error: 'You are already in a clan for this matiere' }, 400);
+    }
+    
+    // Join clan
+    const membershipId = crypto.randomUUID();
+    await db.insert(schema.clanMembers).values({
+      id: membershipId,
+      clanId,
+      userId: user.id,
+      role: 'member',
+      joinedAt: new Date(),
+    });
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/api/student/clans/:id/leave', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const clanId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Remove membership
+    await db
+      .delete(schema.clanMembers)
+      .where(and(
+        eq(schema.clanMembers.clanId, clanId),
+        eq(schema.clanMembers.userId, user.id)
+      ));
     
     return c.json({ success: true });
   } catch (error: any) {

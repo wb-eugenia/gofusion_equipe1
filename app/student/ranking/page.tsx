@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getRanking } from '@/lib/api';
 
 export default function RankingPage() {
   const [ranking, setRanking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     loadRanking();
@@ -20,6 +22,10 @@ export default function RankingPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProfileClick = (userId: string) => {
+    router.push(`/student/profile/${userId}`);
   };
 
   if (loading) {
@@ -38,7 +44,7 @@ export default function RankingPage() {
   };
 
   return (
-    <div className="px-4 py-6">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">🏆 Classement</h1>
         <p className="text-gray-600">Top 10 des étudiants</p>
@@ -49,14 +55,17 @@ export default function RankingPage() {
           {ranking.top10.map((student: any, index: number) => (
             <div
               key={student.id}
-              className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+              className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition cursor-pointer"
+              onClick={() => handleProfileClick(student.id)}
             >
               <div className="flex items-center space-x-4">
                 <span className="text-2xl font-bold text-gray-400 w-8">
                   {getMedal(index + 1)}
                 </span>
                 <div>
-                  <p className="font-semibold text-gray-900">{student.prenom}</p>
+                  <p className="font-semibold text-gray-900 hover:text-blue-600 transition">
+                    {student.prenom}
+                  </p>
                   <p className="text-sm text-gray-500">
                     {student.streakDays > 0 && `🔥 ${student.streakDays} jours de streak`}
                   </p>
@@ -81,6 +90,10 @@ export default function RankingPage() {
           </div>
         </div>
       )}
+      
+      <div className="mt-4 text-sm text-gray-500 text-center">
+        Cliquez sur un nom pour voir son profil
+      </div>
     </div>
   );
 }

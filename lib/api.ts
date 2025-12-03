@@ -183,6 +183,90 @@ export async function deleteBadge(badgeId: string) {
   });
 }
 
+// Student - Skins
+export async function getMySkins() {
+  return apiRequest<{ skins: any[]; activeSkin: any | null }>('/api/student/skins');
+}
+
+export async function activateSkin(skinId: string) {
+  return apiRequest<{ success: boolean }>('/api/student/shop/activate-skin', {
+    method: 'POST',
+    body: JSON.stringify({ skinId }),
+  });
+}
+
+// Student - Public Profile
+export async function getPublicProfile(userId: string) {
+  return apiRequest<any>(`/api/student/profile/${userId}`);
+}
+
+// Student - Friends
+export async function getFriends() {
+  return apiRequest<{ friends: any[] }>('/api/student/friends');
+}
+
+export async function getFriendRequests() {
+  return apiRequest<{ received: any[]; sent: any[] }>('/api/student/friends/requests');
+}
+
+export async function sendFriendRequest(toUserId: string) {
+  return apiRequest<{ success: boolean; requestId: string }>('/api/student/friends/request', {
+    method: 'POST',
+    body: JSON.stringify({ toUserId }),
+  });
+}
+
+export async function acceptFriendRequest(requestId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/friends/accept/${requestId}`, {
+    method: 'POST',
+  });
+}
+
+export async function rejectFriendRequest(requestId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/friends/reject/${requestId}`, {
+    method: 'POST',
+  });
+}
+
+export async function removeFriend(friendId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/friends/${friendId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getFriendActivity(friendId: string) {
+  return apiRequest<any>(`/api/student/friends/${friendId}/activity`);
+}
+
+// Student - Clans
+export async function getClans() {
+  return apiRequest<any[]>('/api/student/clans');
+}
+
+export async function getClansByMatiere(matiereId: string) {
+  return apiRequest<any[]>(`/api/student/clans/${matiereId}`);
+}
+
+export async function getMyClans() {
+  return apiRequest<{ clansByMatiere: Record<string, any[]> }>('/api/student/clans/my');
+}
+
+export async function getClanDetails(clanId: string) {
+  return apiRequest<any>(`/api/student/clans/${clanId}`);
+}
+
+export async function joinClan(clanId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/clans/${clanId}/join`, {
+    method: 'POST',
+  });
+}
+
+export async function leaveClan(clanId: string) {
+  return apiRequest<{ success: boolean }>(`/api/student/clans/${clanId}/leave`, {
+    method: 'POST',
+  });
+}
+
 // Admin - Sessions
 export async function createSession(courseId: string) {
   return apiRequest<any>('/api/admin/sessions', {
