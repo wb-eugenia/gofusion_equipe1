@@ -108,6 +108,8 @@ export default function StudentLayout({
     { href: '/student/courses', label: 'Cours', icon: '' },
     { href: '/student/checkin', label: 'Check-in', icon: '' },
     { href: '/student/duel/lobby', label: 'Duel', icon: '' },
+    { href: '/student/clans', label: 'Clans', icon: '' },
+    { href: '/student/clans/wars', label: 'Guerres', icon: '' },
     { href: '/student/shop', label: 'Boutique', icon: '' },
     { href: '/student/ranking', label: 'Classement', icon: '' },
     { href: '/student/profile', label: 'Profil', icon: '' },

@@ -389,6 +389,11 @@ app.post('/api/courses/:id/complete', async (c) => {
     .set({ xp: user.xp + course.xpReward })
     .where(eq(schema.users.id, user.id));
   
+  // Track clan war contribution (only if course has a matiere)
+  if (course.matiereId) {
+    await trackClanWarContribution(db, user.id, course.matiereId, course.xpReward);
+  }
+  
   // Update streak (simplified: increment if last completion was today or yesterday)
   const allUserProgress = await db
     .select()
@@ -1800,6 +1805,290 @@ app.get('/api/student/friends/:friendId/activity', async (c) => {
   });
 });
 
+// ========== CLAN WARS HELPERS ==========
+
+// Helper: Get config value
+async function getClanWarsConfig(db: any, key: string, defaultValue: string = ''): Promise<string> {
+  const config = await db
+    .select()
+    .from(schema.clanWarsConfig)
+    .where(eq(schema.clanWarsConfig.key, key))
+    .get();
+  
+  return config?.value || defaultValue;
+}
+
+// Helper: Set config value
+async function setClanWarsConfig(db: any, key: string, value: string, description?: string): Promise<void> {
+  const existing = await db
+    .select()
+    .from(schema.clanWarsConfig)
+    .where(eq(schema.clanWarsConfig.key, key))
+    .get();
+  
+  if (existing) {
+    await db
+      .update(schema.clanWarsConfig)
+      .set({
+        value,
+        description: description || existing.description,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.clanWarsConfig.key, key));
+  } else {
+    await db.insert(schema.clanWarsConfig).values({
+      id: key,
+      key,
+      value,
+      description: description || '',
+      updatedAt: new Date(),
+    });
+  }
+}
+
+// Helper: Check if wars are enabled
+async function areWarsEnabled(db: any): Promise<boolean> {
+  const enabled = await getClanWarsConfig(db, 'wars_enabled', 'true');
+  return enabled === 'true';
+}
+
+// Helper: Get start and end of current week (Monday 00:00 to Sunday 23:59)
+function getCurrentWeekRange(): { weekStart: Date; weekEnd: Date } {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  const weekStart = new Date(now.setDate(diff));
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  
+  return { weekStart, weekEnd };
+}
+
+// Helper: Get or create current war for a matiere
+async function getOrCreateCurrentWar(db: any, matiereId: string): Promise<schema.ClanWar | null> {
+  // Check if wars are enabled
+  if (!(await areWarsEnabled(db))) {
+    return null;
+  }
+  
+  const { weekStart, weekEnd } = getCurrentWeekRange();
+  
+  // Check if active war exists for this matiere
+  const existingWar = await db
+    .select()
+    .from(schema.clanWars)
+    .where(and(
+      eq(schema.clanWars.matiereId, matiereId),
+      eq(schema.clanWars.status, 'active')
+    ))
+    .get();
+  
+  if (existingWar) {
+    // Check if war is still in current week
+    const warStart = new Date(existingWar.weekStart);
+    const warEnd = new Date(existingWar.weekEnd);
+    const now = new Date();
+    
+    if (now >= warStart && now <= warEnd) {
+      return existingWar;
+    } else {
+      // War is outdated, finish it
+      await finishWarAndDistributeRewards(db, existingWar.id);
+    }
+  }
+  
+  // Create new war for current week
+  const warId = crypto.randomUUID();
+  await db.insert(schema.clanWars).values({
+    id: warId,
+    matiereId,
+    weekStart,
+    weekEnd,
+    status: 'active',
+    totalBananas: 0,
+    createdAt: new Date(),
+  });
+  
+  const newWar = await db
+    .select()
+    .from(schema.clanWars)
+    .where(eq(schema.clanWars.id, warId))
+    .get();
+  
+  return newWar;
+}
+
+// Helper: Track clan war contribution when user completes a course
+async function trackClanWarContribution(
+  db: any,
+  userId: string,
+  matiereId: string,
+  bananasGained: number
+): Promise<void> {
+  if (!matiereId || bananasGained <= 0) return;
+  
+  // Get or create current war for this matiere
+  const war = await getOrCreateCurrentWar(db, matiereId);
+  if (!war) return;
+  
+  // Find user's clan for this matiere
+  const userClan = await db
+    .select({
+      membership: schema.clanMembers,
+      clan: schema.clans,
+    })
+    .from(schema.clanMembers)
+    .innerJoin(schema.clans, eq(schema.clanMembers.clanId, schema.clans.id))
+    .where(and(
+      eq(schema.clanMembers.userId, userId),
+      eq(schema.clans.matiereId, matiereId)
+    ))
+    .get();
+  
+  if (!userClan) return; // User not in a clan for this matiere
+  
+  // Get or create contribution
+  const existingContribution = await db
+    .select()
+    .from(schema.clanWarContributions)
+    .where(and(
+      eq(schema.clanWarContributions.clanWarId, war.id),
+      eq(schema.clanWarContributions.userId, userId)
+    ))
+    .get();
+  
+  if (existingContribution) {
+    // Update existing contribution
+    await db
+      .update(schema.clanWarContributions)
+      .set({
+        bananasContributed: existingContribution.bananasContributed + bananasGained,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.clanWarContributions.id, existingContribution.id));
+  } else {
+    // Create new contribution
+    const contributionId = crypto.randomUUID();
+    await db.insert(schema.clanWarContributions).values({
+      id: contributionId,
+      clanWarId: war.id,
+      clanId: userClan.clan.id,
+      userId,
+      bananasContributed: bananasGained,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+  
+  // Update total bananas for the war
+  await db
+    .update(schema.clanWars)
+    .set({ totalBananas: sql`${schema.clanWars.totalBananas} + ${bananasGained}` })
+    .where(eq(schema.clanWars.id, war.id));
+}
+
+// Helper: Finish war and distribute rewards
+async function finishWarAndDistributeRewards(db: any, warId: string): Promise<void> {
+  const war = await db
+    .select()
+    .from(schema.clanWars)
+    .where(eq(schema.clanWars.id, warId))
+    .get();
+  
+  if (!war || war.status === 'finished') return;
+  
+  // Get all contributions grouped by clan
+  const contributions = await db
+    .select()
+    .from(schema.clanWarContributions)
+    .where(eq(schema.clanWarContributions.clanWarId, warId))
+    .all();
+  
+  // Calculate total bananas per clan
+  const clanTotals: Record<string, number> = {};
+  contributions.forEach((contrib: schema.ClanWarContribution) => {
+    if (!clanTotals[contrib.clanId]) {
+      clanTotals[contrib.clanId] = 0;
+    }
+    clanTotals[contrib.clanId] += contrib.bananasContributed;
+  });
+  
+  // Find winner (clan with most bananas)
+  let winnerClanId: string | null = null;
+  let maxBananas = 0;
+  
+  for (const [clanId, total] of Object.entries(clanTotals)) {
+    if (total > maxBananas) {
+      maxBananas = total;
+      winnerClanId = clanId;
+    }
+  }
+  
+  // If there's a winner, distribute rewards
+  if (winnerClanId) {
+    const winnerMembers = await db
+      .select()
+      .from(schema.clanMembers)
+      .where(eq(schema.clanMembers.clanId, winnerClanId))
+      .all();
+    
+    const rewardPerMember = parseInt(await getClanWarsConfig(db, 'reward_per_member', '50'), 10);
+    for (const member of winnerMembers) {
+      const user = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, member.userId))
+        .get();
+      
+      if (user) {
+        await db
+          .update(schema.users)
+          .set({ xp: user.xp + rewardPerMember })
+          .where(eq(schema.users.id, member.userId));
+      }
+    }
+  }
+  
+  // Mark war as finished
+  await db
+    .update(schema.clanWars)
+    .set({
+      status: 'finished',
+      winnerClanId,
+      finishedAt: new Date(),
+    })
+    .where(eq(schema.clanWars.id, warId));
+}
+
+// Helper: Check and finalize expired wars (called periodically)
+async function checkAndFinalizeExpiredWars(db: any): Promise<void> {
+  // Check if auto-create is enabled
+  const autoCreate = await getClanWarsConfig(db, 'auto_create_wars', 'true');
+  if (autoCreate !== 'true') {
+    return;
+  }
+  
+  const now = new Date();
+  const { weekStart } = getCurrentWeekRange();
+  
+  // Find all active wars that have ended
+  const expiredWars = await db
+    .select()
+    .from(schema.clanWars)
+    .where(and(
+      eq(schema.clanWars.status, 'active'),
+      lt(schema.clanWars.weekEnd, now)
+    ))
+    .all();
+  
+  for (const war of expiredWars) {
+    await finishWarAndDistributeRewards(db, war.id);
+  }
+}
+
 // ========== CLANS ROUTES ==========
 
 app.get('/api/student/clans', async (c) => {
@@ -2039,6 +2328,505 @@ app.post('/api/student/clans/:id/leave', async (c) => {
         eq(schema.clanMembers.clanId, clanId),
         eq(schema.clanMembers.userId, user.id)
       ));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== CLAN WARS ROUTES ==========
+
+app.get('/api/student/clans/wars/current', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const matiereId = c.req.query('matiereId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Check and finalize expired wars
+  await checkAndFinalizeExpiredWars(db);
+  
+  if (matiereId) {
+    // Get current war for specific matiere
+    const war = await getOrCreateCurrentWar(db, matiereId);
+    if (!war) {
+      return c.json({ war: null });
+    }
+    
+    // Get all contributions for this war
+    const contributions = await db
+      .select({
+        contribution: schema.clanWarContributions,
+        clan: schema.clans,
+      })
+      .from(schema.clanWarContributions)
+      .innerJoin(schema.clans, eq(schema.clanWarContributions.clanId, schema.clans.id))
+      .where(eq(schema.clanWarContributions.clanWarId, war.id))
+      .all();
+    
+    // Calculate totals per clan
+    const clanTotals: Record<string, { clan: any; total: number; memberCount: number }> = {};
+    contributions.forEach(contrib => {
+      const clanId = contrib.clan.id;
+      if (!clanTotals[clanId]) {
+        clanTotals[clanId] = {
+          clan: contrib.clan,
+          total: 0,
+          memberCount: 0,
+        };
+      }
+      clanTotals[clanId].total += contrib.contribution.bananasContributed;
+      clanTotals[clanId].memberCount++;
+    });
+    
+    // Convert to array and sort by total
+    const ranking = Object.values(clanTotals)
+      .sort((a, b) => b.total - a.total)
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1,
+      }));
+    
+    return c.json({
+      war: {
+        ...war,
+        ranking,
+      },
+    });
+  } else {
+    // Get all current wars for all matieres
+    const matieres = await db.select().from(schema.matieres).all();
+    const wars = await Promise.all(
+      matieres.map(async (matiere) => {
+        const war = await getOrCreateCurrentWar(db, matiere.id);
+        if (!war) return null;
+        
+        const contributions = await db
+          .select({
+            contribution: schema.clanWarContributions,
+            clan: schema.clans,
+          })
+          .from(schema.clanWarContributions)
+          .innerJoin(schema.clans, eq(schema.clanWarContributions.clanId, schema.clans.id))
+          .where(eq(schema.clanWarContributions.clanWarId, war.id))
+          .all();
+        
+        const clanTotals: Record<string, { clan: any; total: number }> = {};
+        contributions.forEach(contrib => {
+          const clanId = contrib.clan.id;
+          if (!clanTotals[clanId]) {
+            clanTotals[clanId] = {
+              clan: contrib.clan,
+              total: 0,
+            };
+          }
+          clanTotals[clanId].total += contrib.contribution.bananasContributed;
+        });
+        
+        const ranking = Object.values(clanTotals)
+          .sort((a, b) => b.total - a.total)
+          .map((item, index) => ({
+            ...item,
+            rank: index + 1,
+          }));
+        
+        return {
+          war: {
+            ...war,
+            matiere,
+          },
+          ranking,
+        };
+      })
+    );
+    
+    return c.json({ wars: wars.filter(w => w !== null) });
+  }
+});
+
+app.get('/api/student/clans/wars/:warId', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const warId = c.req.param('warId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const war = await db
+    .select({
+      war: schema.clanWars,
+      matiere: schema.matieres,
+    })
+    .from(schema.clanWars)
+    .leftJoin(schema.matieres, eq(schema.clanWars.matiereId, schema.matieres.id))
+    .where(eq(schema.clanWars.id, warId))
+    .get();
+  
+  if (!war) {
+    return c.json({ error: 'War not found' }, 404);
+  }
+  
+  // Get all contributions with user details
+  const contributions = await db
+    .select({
+      contribution: schema.clanWarContributions,
+      clan: schema.clans,
+      user: schema.users,
+    })
+    .from(schema.clanWarContributions)
+    .innerJoin(schema.clans, eq(schema.clanWarContributions.clanId, schema.clans.id))
+    .innerJoin(schema.users, eq(schema.clanWarContributions.userId, schema.users.id))
+    .where(eq(schema.clanWarContributions.clanWarId, warId))
+    .all();
+  
+  // Group by clan and calculate totals
+  const clanData: Record<string, {
+    clan: any;
+    total: number;
+    members: Array<{ user: any; contribution: number }>;
+  }> = {};
+  
+  contributions.forEach(contrib => {
+    const clanId = contrib.clan.id;
+    if (!clanData[clanId]) {
+      clanData[clanId] = {
+        clan: contrib.clan,
+        total: 0,
+        members: [],
+      };
+    }
+    clanData[clanId].total += contrib.contribution.bananasContributed;
+    clanData[clanId].members.push({
+      user: contrib.user,
+      contribution: contrib.contribution.bananasContributed,
+    });
+  });
+  
+  // Sort members by contribution
+  Object.values(clanData).forEach(data => {
+    data.members.sort((a, b) => b.contribution - a.contribution);
+  });
+  
+  // Convert to ranking
+  const ranking = Object.values(clanData)
+    .sort((a, b) => b.total - a.total)
+    .map((item, index) => ({
+      ...item,
+      rank: index + 1,
+    }));
+  
+  return c.json({
+    war: {
+      ...war.war,
+      matiere: war.matiere,
+    },
+    ranking,
+  });
+});
+
+app.get('/api/student/clans/wars/history', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const matiereId = c.req.query('matiereId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const whereConditions = matiereId
+    ? and(
+        eq(schema.clanWars.status, 'finished'),
+        eq(schema.clanWars.matiereId, matiereId)
+      )
+    : eq(schema.clanWars.status, 'finished');
+  
+  const finishedWars = await db
+    .select({
+      war: schema.clanWars,
+      matiere: schema.matieres,
+      winnerClan: schema.clans,
+    })
+    .from(schema.clanWars)
+    .leftJoin(schema.matieres, eq(schema.clanWars.matiereId, schema.matieres.id))
+    .leftJoin(schema.clans, eq(schema.clanWars.winnerClanId, schema.clans.id))
+    .where(whereConditions)
+    .orderBy(desc(schema.clanWars.finishedAt))
+    .limit(50)
+    .all();
+  
+  return c.json(finishedWars.map(w => ({
+    ...w.war,
+    matiere: w.matiere,
+    winnerClan: w.winnerClan,
+  })));
+});
+
+app.get('/api/student/clans/:clanId/war-contributions', async (c) => {
+  const user = await getUser(c);
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const clanId = c.req.param('clanId');
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get current active war for this clan's matiere
+  const clan = await db
+    .select()
+    .from(schema.clans)
+    .where(eq(schema.clans.id, clanId))
+    .get();
+  
+  if (!clan) {
+    return c.json({ error: 'Clan not found' }, 404);
+  }
+  
+  const war = await getOrCreateCurrentWar(db, clan.matiereId);
+  if (!war) {
+    return c.json({ contributions: [], war: null });
+  }
+  
+  // Get contributions for this clan in current war
+  const contributions = await db
+    .select({
+      contribution: schema.clanWarContributions,
+      user: schema.users,
+    })
+    .from(schema.clanWarContributions)
+    .innerJoin(schema.users, eq(schema.clanWarContributions.userId, schema.users.id))
+    .where(and(
+      eq(schema.clanWarContributions.clanWarId, war.id),
+      eq(schema.clanWarContributions.clanId, clanId)
+    ))
+    .orderBy(desc(schema.clanWarContributions.bananasContributed))
+    .all();
+  
+  const total = contributions.reduce((sum, c) => sum + c.contribution.bananasContributed, 0);
+  
+  return c.json({
+    war: {
+      ...war,
+      matiere: clan.matiereId,
+    },
+    contributions: contributions.map(c => ({
+      user: c.user,
+      bananasContributed: c.contribution.bananasContributed,
+      updatedAt: c.contribution.updatedAt,
+    })),
+    total,
+  });
+});
+
+// ========== ADMIN CLAN WARS ROUTES ==========
+
+app.get('/api/admin/clan-wars/config', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  const configs = await db.select().from(schema.clanWarsConfig).all();
+  
+  // Convert to key-value object
+  const configObj: Record<string, { value: string; description?: string }> = {};
+  configs.forEach(config => {
+    configObj[config.key] = {
+      value: config.value,
+      description: config.description || undefined,
+    };
+  });
+  
+  return c.json(configObj);
+});
+
+app.put('/api/admin/clan-wars/config', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { key, value, description } = body;
+    
+    if (!key || value === undefined) {
+      return c.json({ error: 'Key and value are required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    await setClanWarsConfig(db, key, String(value), description);
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/admin/clan-wars/stats', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all wars
+  const allWars = await db.select().from(schema.clanWars).all();
+  const activeWars = allWars.filter(w => w.status === 'active');
+  const finishedWars = allWars.filter(w => w.status === 'finished');
+  
+  // Get total contributions
+  const allContributions = await db.select().from(schema.clanWarContributions).all();
+  const totalBananas = allContributions.reduce((sum, c) => sum + c.bananasContributed, 0);
+  
+  // Get unique clans that participated
+  const uniqueClans = new Set(allContributions.map(c => c.clanId)).size;
+  const uniqueUsers = new Set(allContributions.map(c => c.userId)).size;
+  
+  return c.json({
+    totalWars: allWars.length,
+    activeWars: activeWars.length,
+    finishedWars: finishedWars.length,
+    totalBananas,
+    uniqueClans,
+    uniqueUsers,
+    totalContributions: allContributions.length,
+  });
+});
+
+app.get('/api/admin/clan-wars', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const status = c.req.query('status');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const whereCondition = status
+    ? eq(schema.clanWars.status, status)
+    : undefined;
+  
+  const wars = await db
+    .select({
+      war: schema.clanWars,
+      matiere: schema.matieres,
+      winnerClan: schema.clans,
+    })
+    .from(schema.clanWars)
+    .leftJoin(schema.matieres, eq(schema.clanWars.matiereId, schema.matieres.id))
+    .leftJoin(schema.clans, eq(schema.clanWars.winnerClanId, schema.clans.id))
+    .where(whereCondition)
+    .orderBy(desc(schema.clanWars.createdAt))
+    .limit(100)
+    .all();
+  
+  return c.json(wars.map(w => ({
+    ...w.war,
+    matiere: w.matiere,
+    winnerClan: w.winnerClan,
+  })));
+});
+
+app.post('/api/admin/clan-wars/manual-create', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { matiereId, weekStart, weekEnd } = body;
+    
+    if (!matiereId) {
+      return c.json({ error: 'Matiere ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if matiere exists
+    const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!matiere) {
+      return c.json({ error: 'Matiere not found' }, 404);
+    }
+    
+    // Check if active war already exists
+    const existingWar = await db
+      .select()
+      .from(schema.clanWars)
+      .where(and(
+        eq(schema.clanWars.matiereId, matiereId),
+        eq(schema.clanWars.status, 'active')
+      ))
+      .get();
+    
+    if (existingWar) {
+      return c.json({ error: 'Active war already exists for this matiere' }, 400);
+    }
+    
+    const warId = crypto.randomUUID();
+    const startDate = weekStart ? new Date(weekStart) : getCurrentWeekRange().weekStart;
+    const endDate = weekEnd ? new Date(weekEnd) : getCurrentWeekRange().weekEnd;
+    
+    await db.insert(schema.clanWars).values({
+      id: warId,
+      matiereId,
+      weekStart: startDate,
+      weekEnd: endDate,
+      status: 'active',
+      totalBananas: 0,
+      createdAt: new Date(),
+    });
+    
+    const war = await db
+      .select({
+        war: schema.clanWars,
+        matiere: schema.matieres,
+      })
+      .from(schema.clanWars)
+      .leftJoin(schema.matieres, eq(schema.clanWars.matiereId, schema.matieres.id))
+      .where(eq(schema.clanWars.id, warId))
+      .get();
+    
+    return c.json({
+      ...war?.war,
+      matiere: war?.matiere,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/api/admin/clan-wars/:id/finish', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const warId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    const war = await db
+      .select()
+      .from(schema.clanWars)
+      .where(eq(schema.clanWars.id, warId))
+      .get();
+    
+    if (!war) {
+      return c.json({ error: 'War not found' }, 404);
+    }
+    
+    if (war.status === 'finished') {
+      return c.json({ error: 'War already finished' }, 400);
+    }
+    
+    await finishWarAndDistributeRewards(db, warId);
     
     return c.json({ success: true });
   } catch (error: any) {
@@ -2778,5 +3566,16 @@ app.onError((err, c) => {
   return c.json({ error: err.message || 'Internal server error' }, 500);
 });
 
-export default app;
+// Scheduled event handler for cron jobs
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        const db = drizzle(env.DB, { schema });
+        await checkAndFinalizeExpiredWars(db);
+      })()
+    );
+  },
+};
 

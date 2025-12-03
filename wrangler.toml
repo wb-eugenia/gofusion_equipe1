@@ -18,3 +18,7 @@ preview_id = "7c3659065e7f43ac952ff7f31a4331e9"
 [vars]
 ENVIRONMENT = "production"
 
+# Cron trigger to check and finalize expired clan wars daily at midnight UTC
+[triggers]
+crons = ["0 0 * * *"]
+

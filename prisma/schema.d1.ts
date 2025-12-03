@@ -195,6 +195,36 @@ export const clanMembers = sqliteTable('clan_members', {
   joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const clanWars = sqliteTable('clan_wars', {
+  id: text('id').primaryKey(),
+  matiereId: text('matiere_id').notNull().references(() => matieres.id, { onDelete: 'cascade' }),
+  weekStart: integer('week_start', { mode: 'timestamp' }).notNull(),
+  weekEnd: integer('week_end', { mode: 'timestamp' }).notNull(),
+  status: text('status').default('active').notNull(), // 'active' | 'finished'
+  winnerClanId: text('winner_clan_id').references(() => clans.id, { onDelete: 'set null' }),
+  totalBananas: integer('total_bananas').default(0).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  finishedAt: integer('finished_at', { mode: 'timestamp' }),
+});
+
+export const clanWarContributions = sqliteTable('clan_war_contributions', {
+  id: text('id').primaryKey(),
+  clanWarId: text('clan_war_id').notNull().references(() => clanWars.id, { onDelete: 'cascade' }),
+  clanId: text('clan_id').notNull().references(() => clans.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bananasContributed: integer('bananas_contributed').default(0).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const clanWarsConfig = sqliteTable('clan_wars_config', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  value: text('value').notNull(),
+  description: text('description'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Course = typeof courses.$inferSelect;
@@ -212,4 +242,7 @@ export type FriendRequest = typeof friendRequests.$inferSelect;
 export type Friendship = typeof friendships.$inferSelect;
 export type Clan = typeof clans.$inferSelect;
 export type ClanMember = typeof clanMembers.$inferSelect;
+export type ClanWar = typeof clanWars.$inferSelect;
+export type ClanWarContribution = typeof clanWarContributions.$inferSelect;
+export type ClanWarsConfig = typeof clanWarsConfig.$inferSelect;
 

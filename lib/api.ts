@@ -338,3 +338,60 @@ export async function deleteDuel(duelId: string) {
   });
 }
 
+// Student - Clan Wars
+export async function getCurrentClanWars(matiereId?: string) {
+  const url = matiereId 
+    ? `/api/student/clans/wars/current?matiereId=${matiereId}`
+    : '/api/student/clans/wars/current';
+  return apiRequest<{ war?: any; wars?: any[] }>(url);
+}
+
+export async function getClanWar(warId: string) {
+  return apiRequest<{ war: any; ranking: any[] }>(`/api/student/clans/wars/${warId}`);
+}
+
+export async function getClanWarHistory(matiereId?: string) {
+  const url = matiereId
+    ? `/api/student/clans/wars/history?matiereId=${matiereId}`
+    : '/api/student/clans/wars/history';
+  return apiRequest<any[]>(url);
+}
+
+export async function getClanWarContributions(clanId: string) {
+  return apiRequest<{ war: any; contributions: any[]; total: number }>(`/api/student/clans/${clanId}/war-contributions`);
+}
+
+// Admin - Clan Wars
+export async function getClanWarsConfig() {
+  return apiRequest<Record<string, { value: string; description?: string }>>('/api/admin/clan-wars/config');
+}
+
+export async function updateClanWarsConfig(key: string, value: string, description?: string) {
+  return apiRequest<{ success: boolean }>('/api/admin/clan-wars/config', {
+    method: 'PUT',
+    body: JSON.stringify({ key, value, description }),
+  });
+}
+
+export async function getClanWarsStats() {
+  return apiRequest<any>('/api/admin/clan-wars/stats');
+}
+
+export async function getAdminClanWars(status?: string) {
+  const url = status ? `/api/admin/clan-wars?status=${status}` : '/api/admin/clan-wars';
+  return apiRequest<any[]>(url);
+}
+
+export async function createClanWar(data: { matiereId: string; weekStart?: string; weekEnd?: string }) {
+  return apiRequest<any>('/api/admin/clan-wars/manual-create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function finishClanWar(warId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/clan-wars/${warId}/finish`, {
+    method: 'POST',
+  });
+}
+

@@ -92,8 +92,16 @@ export default function ClansPage() {
       <PopupComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Clans</h1>
-          <p className="text-gray-600">Rejoignez un clan par matière pour collaborer avec d'autres étudiants</p>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">Clans</h1>
+            <button
+              onClick={() => router.push('/student/clans/wars')}
+              className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold"
+            >
+              🏆 Guerres de Clan
+            </button>
+          </div>
+          <p className="text-gray-600">Rejoignez un clan par matière pour collaborer avec d'autres étudiants et participer aux guerres hebdomadaires !</p>
         </div>
 
         {/* Filter by Matiere */}
