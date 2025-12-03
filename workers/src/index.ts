@@ -1095,6 +1095,100 @@ app.post('/api/student/session/track', async (c) => {
 
 // ========== SHOP ROUTES ==========
 
+// Admin routes for shop management
+app.get('/api/admin/shop/items', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  const items = await db.select().from(schema.shopItems).all();
+  
+  return c.json(items);
+});
+
+const createShopItemSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  type: z.enum(['skin', 'powerup', 'cosmetic']),
+  price: z.number().int().min(1),
+  data: z.string().optional(),
+  icon: z.string().optional(),
+});
+
+app.post('/api/admin/shop/items', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const data = createShopItemSchema.parse(body);
+    
+    const db = drizzle(c.env.DB, { schema });
+    const itemId = crypto.randomUUID();
+    
+    await db.insert(schema.shopItems).values({
+      id: itemId,
+      ...data,
+      createdAt: new Date(),
+    });
+    
+    const item = await db.select().from(schema.shopItems).where(eq(schema.shopItems.id, itemId)).get();
+    
+    return c.json(item, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.put('/api/admin/shop/items/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const itemId = c.req.param('id');
+    const body = await c.req.json();
+    const data = createShopItemSchema.partial().parse(body);
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    await db
+      .update(schema.shopItems)
+      .set(data)
+      .where(eq(schema.shopItems.id, itemId));
+    
+    const item = await db.select().from(schema.shopItems).where(eq(schema.shopItems.id, itemId)).get();
+    
+    if (!item) {
+      return c.json({ error: 'Item not found' }, 404);
+    }
+    
+    return c.json(item);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/admin/shop/items/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const itemId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  await db.delete(schema.shopItems).where(eq(schema.shopItems.id, itemId));
+  
+  return c.json({ success: true });
+});
+
+// Student routes
 app.get('/api/student/shop/items', async (c) => {
   const user = await getUser(c);
   if (!user) {

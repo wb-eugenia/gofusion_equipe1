@@ -149,7 +149,7 @@ export default function AdminDashboard() {
   return (
     <>
       <PopupComponent />
-      <div className="px-4 sm:px-6 py-4 sm:py-6">
+      <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">⚙️ Dashboard Admin</h1>

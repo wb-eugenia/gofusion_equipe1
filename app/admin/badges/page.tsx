@@ -108,7 +108,7 @@ export default function AdminBadgesPage() {
   return (
     <>
       <PopupComponent />
-      <div className="px-4 py-6">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">🎖️ Gestion des Badges</h1>
