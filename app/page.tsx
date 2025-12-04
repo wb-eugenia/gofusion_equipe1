@@ -138,9 +138,9 @@ export default function Home() {
           </div>
           <div className="bg-surface rounded-2xl shadow-card p-8 hover:shadow-lift hover:scale-[1.02] transition-all duration-200">
             <div className="text-5xl mb-4 text-center"></div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 text-center">Sessions QR Code</h3>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 text-center">Sessions avec code</h3>
             <p className="text-textMuted text-center">
-              Participez aux sessions en scannant un QR code. Gagnez 10 🍌 bananes à chaque participation
+              Participez aux sessions en entrant un code de session. Gagnez 10 🍌 bananes à chaque participation
               et suivez votre présence !
             </p>
           </div>

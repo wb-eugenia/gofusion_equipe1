@@ -1,4 +1,4 @@
-# 📱 Guide des Sessions avec QR Codes
+# 📱 Guide des Sessions avec codes
 
 ## 🎯 Fonctionnalités
 
@@ -7,8 +7,8 @@
 1. **Dashboard Admin** (`/admin`) :
    - Voir les KPI (étudiants, XP, cours, badges)
    - Gérer les cours (créer, modifier)
-   - Créer des sessions avec QR codes
-   - Voir la session active avec QR code
+   - Créer des sessions avec codes uniques
+   - Voir la session active avec son code
 
 2. **Créer une Session** :
    - Cliquez sur "📱 Nouvelle Session"
@@ -25,7 +25,6 @@
 
 1. **Check-in** (`/student/checkin`) :
    - Entrer le code de session (6 caractères)
-   - Ou scanner le QR code (à venir)
    - Gagnez 10 XP par check-in
    - Impossible de s'inscrire deux fois à la même session
 
@@ -49,12 +48,12 @@ npm run create-admin
 1. Sur `/admin`, cliquez sur "📱 Nouvelle Session"
 2. Sélectionnez la matière/cours
 3. Cliquez sur "Créer Session"
-4. Un QR code apparaît avec le code
+4. Le code de session est affiché
 
 ### Étape 4 : Les Étudiants s'Inscrivent
 
 1. Les étudiants vont sur `/student/checkin`
-2. Ils entrent le code ou scannent le QR code
+2. Ils entrent le code de la session fourni par l’enseignant
 3. Ils gagnent 10 XP automatiquement
 4. Redirection vers `/student/courses`
 
@@ -98,7 +97,7 @@ npx wrangler d1 execute gamification-db --local --command "SELECT * FROM session
 
 ### Dashboard Admin (`/admin`)
 - KPI en haut (4 cartes)
-- Session active avec QR code (si active)
+- Session active avec code (si active)
 - Liste des cours avec actions
 
 ### Check-in Étudiant (`/student/checkin`)
@@ -115,5 +114,5 @@ npx wrangler d1 execute gamification-db --local --command "SELECT * FROM session
 
 ---
 
-**Tout est prêt ! Créez des sessions et les étudiants peuvent s'inscrire avec les QR codes ! 🎉**
+**Tout est prêt ! Créez des sessions et les étudiants peuvent s'inscrire avec leur code de session ! 🎉**
 
