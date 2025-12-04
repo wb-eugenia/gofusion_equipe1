@@ -62,7 +62,6 @@ export default function AdminLayout({
     { href: '/admin/sessions', label: 'Sessions', icon: '' },
     { href: '/admin/shop', label: 'Shop', icon: '' },
     { href: '/admin/clans', label: 'Clans', icon: '' },
-    { href: '/admin/clan-wars', label: 'Guerres de Clan', icon: '' },
     { href: '/admin/analytics', label: 'Analytics', icon: '' },
     { href: '/admin/badges', label: 'Badges', icon: '' },
   ];
