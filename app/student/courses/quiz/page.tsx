@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getCourse, completeCourse, submitStressLevel } from '@/lib/api';
 import StressSlider from '@/components/StressSlider';
@@ -15,7 +15,13 @@ export default function CourseQuizPage() {
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  // answers: pour le quiz => questionId -> index
+  //          pour le memory => questionId -> 'matched'
+  //          pour le match  => leftId -> rightId
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [memoryFlipped, setMemoryFlipped] = useState<string[]>([]);
+  const [memoryLocked, setMemoryLocked] = useState(false);
+  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
@@ -24,6 +30,11 @@ export default function CourseQuizPage() {
   const [stressAfter, setStressAfter] = useState(5);
   const [stressBeforeSubmitted, setStressBeforeSubmitted] = useState(false);
   const [stressAfterSubmitted, setStressAfterSubmitted] = useState(false);
+
+  // Refs utilisés pour dessiner les lignes du jeu "Relier"
+  const matchContainerRef = useRef<HTMLDivElement | null>(null);
+  const matchLeftRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const matchRightRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     if (courseId) {
@@ -96,7 +107,8 @@ export default function CourseQuizPage() {
       const matchQuestions = course.questions.filter((q: any) => q.type === 'match_pair');
       matchQuestions.forEach((q: any) => {
         const userAnswer = answers[q.id];
-        if (userAnswer && userAnswer === q.correctAnswer) {
+        // Pour le jeu "relier", on stocke rightId = leftId lorsque la paire est correcte
+        if (userAnswer && userAnswer === q.id) {
           correct++;
         }
       });
@@ -161,7 +173,7 @@ export default function CourseQuizPage() {
     } else if (course.gameType === 'match') {
       const matchQuestions = course.questions.filter((q: any) => q.type === 'match_pair');
       matchQuestions.forEach((q: any) => {
-        if (answers[q.id] && answers[q.id] === q.correctAnswer) {
+        if (answers[q.id] && answers[q.id] === q.id) {
           correctAnswers++;
         }
       });
@@ -227,7 +239,7 @@ export default function CourseQuizPage() {
     } else if (course.gameType === 'match') {
       const matchQuestions = course.questions.filter((q: any) => q.type === 'match_pair');
       matchQuestions.forEach((q: any) => {
-        if (answers[q.id] && answers[q.id] === q.correctAnswer) {
+        if (answers[q.id] && answers[q.id] === q.id) {
           correctAnswers++;
         }
       });
@@ -406,45 +418,49 @@ export default function CourseQuizPage() {
       sortKey: (index * 37) % 101,
     })).sort((a: any, b: any) => a.sortKey - b.sortKey);
 
-    // État dérivé : quelles cartes sont retournées / trouvées
-    const flippedIds = Object.keys(answers).filter(key => answers[key] === 'flipped');
+    // État dérivé : cartes trouvées
     const matchedQuestionIds = Object.keys(answers).filter(qid => answers[qid] === 'matched');
 
     const handleCardClick = (cardId: string, questionId: string) => {
-      // Si déjà trouvée, on ignore
-      if (matchedQuestionIds.includes(questionId)) return;
+      // Si déjà trouvée ou verrouillé pendant l'animation, on ignore
+      if (matchedQuestionIds.includes(questionId) || memoryLocked) return;
 
-      const currentFlipped = flippedIds.filter(id => id !== cardId);
+      // Si la carte est déjà retournée, on ignore
+      if (memoryFlipped.includes(cardId)) return;
 
-      // Si aucune ou une seule carte, on (re)retourne
-      if (currentFlipped.length === 0) {
-        setAnswers(prev => ({
-          ...prev,
-          [cardId]: 'flipped',
-        }));
+      // Si aucune carte n'est retournée, on retourne simplement cette carte
+      if (memoryFlipped.length === 0) {
+        setMemoryFlipped([cardId]);
         return;
       }
 
-      if (currentFlipped.length === 1) {
-        const firstId = currentFlipped[0];
+      if (memoryFlipped.length === 1) {
+        const firstId = memoryFlipped[0];
         const firstCard = shuffledCards.find(c => c.id === firstId);
         const secondCard = shuffledCards.find(c => c.id === cardId);
         if (!firstCard || !secondCard) return;
 
+        // On retourne la seconde carte
+        setMemoryFlipped([firstId, cardId]);
+
         // Si même questionId => paire trouvée
         if (firstCard.questionId === secondCard.questionId) {
+          // On marque la paire comme trouvée puis on libère les cartes
           setAnswers(prev => ({
             ...prev,
-            [cardId]: 'flipped',
-            [firstId]: 'flipped',
             [questionId]: 'matched',
           }));
+          // On vide les cartes retournées pour permettre de cliquer sur d'autres paires
+          setTimeout(() => {
+            setMemoryFlipped([]);
+          }, 400);
         } else {
-          // Sinon, on retourne cette carte et on laissera l’utilisateur réessayer
-          setAnswers(prev => ({
-            ...prev,
-            [cardId]: 'flipped',
-          }));
+          // Sinon, on laisse les deux cartes visibles 1.5s puis on les retourne
+          setMemoryLocked(true);
+          setTimeout(() => {
+            setMemoryFlipped([]);
+            setMemoryLocked(false);
+          }, 1500);
         }
       }
     };
@@ -474,7 +490,7 @@ export default function CourseQuizPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 {shuffledCards.map((card: any) => {
                   const isMatched = matchedQuestionIds.includes(card.questionId);
-                  const isFlipped = flippedIds.includes(card.id) || isMatched;
+                  const isFlipped = memoryFlipped.includes(card.id) || isMatched;
                   return (
                     <button
                       key={card.id}
@@ -530,6 +546,14 @@ export default function CourseQuizPage() {
       })
       .filter((p: any) => p.definition && p.word);
 
+    const colorPalette = ['#22c55e', '#3b82f6', '#f97316', '#e11d48', '#a855f7', '#14b8a6', '#facc15'];
+
+    const getPairColor = (id: string) => {
+      const index = pairs.findIndex((p: any) => p.id === id);
+      if (index === -1) return '#22c55e';
+      return colorPalette[index % colorPalette.length];
+    };
+
     const leftItems = pairs.map((p: any) => ({
       id: p.id,
       text: p.definition,
@@ -537,14 +561,11 @@ export default function CourseQuizPage() {
 
     const rightItems = pairs
       .map((p: any, index: number) => ({
-        id: `${p.id}-right-${index}`,
+        id: p.id,
         word: p.word,
-        questionId: p.id,
         sortKey: (index * 53) % 101,
       }))
       .sort((a: any, b: any) => a.sortKey - b.sortKey);
-
-    const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
 
     const handleSelectLeft = (id: string) => {
       setSelectedLeft(id);
@@ -555,7 +576,8 @@ export default function CourseQuizPage() {
       // On enregistre la correspondance pour la question
       setAnswers(prev => ({
         ...prev,
-        [selectedLeft]: right.word,
+        // on stocke l'id de droite sélectionné
+        [selectedLeft]: right.id,
       }));
       setSelectedLeft(null);
     };
@@ -563,7 +585,7 @@ export default function CourseQuizPage() {
     const allMatched = leftItems.every((left: any) => {
       const expected = pairs.find((p: any) => p.id === left.id);
       const userAnswer = answers[left.id];
-      return expected && userAnswer && userAnswer === expected.word;
+      return expected && userAnswer && userAnswer === expected.id;
     });
 
     return (
@@ -571,7 +593,49 @@ export default function CourseQuizPage() {
         <ToastComponent />
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+            <div
+              ref={matchContainerRef}
+              className="relative bg-white rounded-2xl shadow-xl p-6 sm:p-8 overflow-hidden"
+            >
+              {/* Lignes de correspondance */}
+              <svg className="pointer-events-none absolute inset-0 w-full h-full">
+                {leftItems.map((left) => {
+                  const rightId = answers[left.id];
+                  if (!rightId) return null;
+
+                  const container = matchContainerRef.current;
+                  const leftEl = matchLeftRefs.current[left.id];
+                  const rightEl = matchRightRefs.current[rightId];
+                  if (!container || !leftEl || !rightEl) return null;
+
+                  const cRect = container.getBoundingClientRect();
+                  const lRect = leftEl.getBoundingClientRect();
+                  const rRect = rightEl.getBoundingClientRect();
+
+                  const x1 = lRect.right - cRect.left;
+                  const y1 = lRect.top - cRect.top + lRect.height / 2;
+                  const x2 = rRect.left - cRect.left;
+                  const y2 = rRect.top - cRect.top + rRect.height / 2;
+
+                  const isCorrect = rightId === left.id;
+                  const color = isCorrect ? getPairColor(left.id) : '#ef4444';
+
+                  return (
+                    <line
+                      key={`${left.id}-${rightId}`}
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      stroke={color}
+                    />
+                  );
+                })}
+              </svg>
+
+              <div className="relative z-10">
               <div className="mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                   {course.titre} - Relier les définitions
@@ -591,18 +655,24 @@ export default function CourseQuizPage() {
                     {leftItems.map((item: any) => {
                       const isSelected = selectedLeft === item.id;
                       const hasAnswer = !!answers[item.id];
+                      const isCorrect = answers[item.id] === item.id;
+                      const pairColor = getPairColor(item.id);
                       return (
                         <button
                           key={item.id}
                           type="button"
+                          ref={(el) => { matchLeftRefs.current[item.id] = el; }}
                           onClick={() => handleSelectLeft(item.id)}
-                          className={`w-full text-left px-3 py-2 rounded-lg border-2 text-sm transition ${
-                            isSelected
-                              ? 'border-blue-600 bg-blue-50'
+                          className={`w-full text-left px-3 py-2 rounded-lg border-2 text-sm transition`}
+                          style={
+                            isCorrect
+                              ? { borderColor: pairColor, backgroundColor: `${pairColor}22`, color: '#064e3b' }
+                              : isSelected
+                              ? { borderColor: '#3b82f6', backgroundColor: '#eff6ff' }
                               : hasAnswer
-                              ? 'border-green-500 bg-green-50'
-                              : 'border-gray-200 hover:border-blue-300'
-                          }`}
+                              ? { borderColor: '#22c55e', backgroundColor: '#ecfdf3' }
+                              : { borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }
+                          }
                         >
                           {item.text}
                         </button>
@@ -618,8 +688,18 @@ export default function CourseQuizPage() {
                       <button
                         key={item.id}
                         type="button"
+                        ref={(el) => { matchRightRefs.current[item.id] = el; }}
                         onClick={() => handleSelectRight(item)}
-                        className="w-full text-left px-3 py-2 rounded-lg border-2 border-gray-200 text-sm hover:border-blue-300 transition"
+                        className="w-full text-left px-3 py-2 rounded-lg border-2 text-sm hover:border-blue-300 transition"
+                        style={
+                          answers[item.id] === item.id
+                            ? {
+                                borderColor: getPairColor(item.id),
+                                backgroundColor: `${getPairColor(item.id)}22`,
+                                color: '#064e3b',
+                              }
+                            : { borderColor: '#e5e7eb', backgroundColor: '#f9fafb' }
+                        }
                       >
                         {item.word}
                       </button>
@@ -636,6 +716,7 @@ export default function CourseQuizPage() {
               >
                 {allMatched ? 'Valider mes correspondances' : 'Complétez toutes les correspondances'}
               </button>
+              </div>
             </div>
           </div>
         </div>

@@ -43,6 +43,8 @@ export default function AdminCoursesPage() {
     xpReward: 50,
   });
   const [questions, setQuestions] = useState<AdminQuestion[]>([]);
+  // IDs des questions existantes en base pour ce cours (avant modification)
+  const [initialQuestionIds, setInitialQuestionIds] = useState<string[]>([]);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<AdminQuestion | null>(null);
 
@@ -74,6 +76,7 @@ export default function AdminCoursesPage() {
       xpReward: 50,
     });
     setQuestions([]);
+    setInitialQuestionIds([]);
     setEditingCourse(null);
   };
 
@@ -111,9 +114,8 @@ export default function AdminCoursesPage() {
         });
 
         // Met à jour / crée / supprime les questions une par une
-        const existingIds = new Set(
-          (editingCourse.questions || []).map((q: any) => q.id)
-        );
+        // On se base sur les IDs chargés depuis l'API au moment où on a ouvert la modale
+        const existingIds = new Set(initialQuestionIds);
         const currentIds = new Set(
           questions.filter(q => q.id).map(q => q.id as string)
         );
@@ -182,6 +184,7 @@ export default function AdminCoursesPage() {
       .then((qs) => {
         const sorted = (qs || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
         setQuestions(sorted);
+        setInitialQuestionIds(sorted.map((q: any) => q.id));
       })
       .catch((err) => {
         console.error('Error loading questions:', err);
