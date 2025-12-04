@@ -190,7 +190,11 @@ export default function CoursesPage() {
                         className="px-5 py-2.5 bg-primary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 font-bold text-sm min-h-[44px]"
                         style={{ boxShadow: '0 4px 0 0 rgba(157, 95, 47, 1)', borderBottom: '4px solid rgba(157, 95, 47, 1)' }}
                       >
-                        Commencer
+                        {course.gameType === 'memory'
+                          ? 'Jouer au memory'
+                          : course.gameType === 'match'
+                          ? 'Relier les mots'
+                          : 'Commencer'}
                       </button>
                     )}
                   </div>

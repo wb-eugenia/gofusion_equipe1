@@ -1,10 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCourses, createCourse, updateCourse, deleteCourse, getMatieres } from '@/lib/api';
+import { 
+  getCourses, 
+  createCourse, 
+  updateCourse, 
+  deleteCourse, 
+  getMatieres,
+  getAdminCourseQuestions,
+  createAdminQuestion,
+  updateAdminQuestion,
+  deleteAdminQuestion,
+} from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
-import Link from 'next/link';
+import QuestionEditor from '@/components/QuestionEditor';
 import { usePopup } from '@/hooks/usePopup';
+
+type GameType = 'quiz' | 'memory' | 'match';
+type QuestionType = 'multiple_choice' | 'memory_pair' | 'match_pair';
+
+interface AdminQuestion {
+  id?: string;
+  question: string;
+  type: QuestionType;
+  options?: string;
+  correctAnswer?: string;
+  order: number;
+}
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<any[]>([]);
@@ -17,10 +39,12 @@ export default function AdminCoursesPage() {
     titre: '',
     description: '',
     matiereId: '',
-    gameType: 'quiz' as 'quiz' | 'memory' | 'match',
     theoreticalContent: '',
     xpReward: 50,
   });
+  const [questions, setQuestions] = useState<AdminQuestion[]>([]);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<AdminQuestion | null>(null);
 
   useEffect(() => {
     loadData();
@@ -41,18 +65,103 @@ export default function AdminCoursesPage() {
     }
   };
 
+  const resetCourseForm = () => {
+    setFormData({ 
+      titre: '', 
+      description: '', 
+      matiereId: '', 
+      theoreticalContent: '', 
+      xpReward: 50,
+    });
+    setQuestions([]);
+    setEditingCourse(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (editingCourse) {
-        await updateCourse(editingCourse.id, formData);
+      // Validation basique : au moins une question pour le type sélectionné
+      if (questions.length === 0) {
+        showError('Veuillez ajouter au moins une question pour ce cours.');
+        return;
+      }
+
+      // Déterminer automatiquement le type de jeu à partir du type de questions
+      const questionTypes = Array.from(new Set(questions.map(q => q.type)));
+      if (questionTypes.length !== 1) {
+        showError('Toutes les questions d’un cours doivent être du même type (QCM, Memory ou Match).');
+        return;
+      }
+
+      const qType = questionTypes[0];
+      let gameType: GameType;
+      if (qType === 'multiple_choice') {
+        gameType = 'quiz';
+      } else if (qType === 'memory_pair') {
+        gameType = 'memory';
       } else {
-        await createCourse(formData);
+        gameType = 'match';
+      }
+
+      if (editingCourse) {
+        // Mise à jour du cours
+        const updatedCourse = await updateCourse(editingCourse.id, {
+          ...formData,
+          gameType,
+        });
+
+        // Met à jour / crée / supprime les questions une par une
+        const existingIds = new Set(
+          (editingCourse.questions || []).map((q: any) => q.id)
+        );
+        const currentIds = new Set(
+          questions.filter(q => q.id).map(q => q.id as string)
+        );
+
+        // Supprimer les anciennes questions qui ne sont plus présentes
+        for (const oldId of existingIds) {
+          if (!currentIds.has(oldId)) {
+            await deleteAdminQuestion(oldId);
+          }
+        }
+
+        // Créer ou mettre à jour les questions actuelles
+        for (const q of questions) {
+          const payload = {
+            question: q.question,
+            type: q.type,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            order: q.order ?? 0,
+          };
+
+          if (q.id) {
+            await updateAdminQuestion(q.id, payload);
+          } else {
+            await createAdminQuestion(editingCourse.id, payload);
+          }
+        }
+      } else {
+        // Création du cours
+        const newCourse = await createCourse({
+          ...formData,
+          gameType,
+        });
+
+        // Création des questions associées
+        for (const q of questions) {
+          await createAdminQuestion(newCourse.id, {
+            question: q.question,
+            type: q.type,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            order: q.order ?? 0,
+          });
+        }
       }
       await loadData();
       setShowModal(false);
-      setEditingCourse(null);
-      setFormData({ titre: '', description: '', matiereId: '', gameType: 'quiz', theoreticalContent: '', xpReward: 50 });
+      resetCourseForm();
     } catch (error: any) {
       showError(error.message || 'Erreur lors de la sauvegarde');
     }
@@ -64,11 +173,23 @@ export default function AdminCoursesPage() {
       titre: course.titre,
       description: course.description,
       matiereId: course.matiereId || '',
-      gameType: course.gameType || 'quiz',
       theoreticalContent: course.theoreticalContent || '',
       xpReward: course.xpReward,
     });
-    setShowModal(true);
+
+    // Charger les questions du cours
+    getAdminCourseQuestions(course.id)
+      .then((qs) => {
+        const sorted = (qs || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+        setQuestions(sorted);
+      })
+      .catch((err) => {
+        console.error('Error loading questions:', err);
+        setQuestions([]);
+      })
+      .finally(() => {
+        setShowModal(true);
+      });
   };
 
   const handleDelete = async (courseId: string) => {
@@ -88,6 +209,47 @@ export default function AdminCoursesPage() {
     );
   };
 
+  const openNewCourseModal = () => {
+    resetCourseForm();
+    setShowModal(true);
+  };
+
+  const handleAddQuestion = () => {
+    setEditingQuestion({
+      question: '',
+      type: 'multiple_choice',
+      options: '[]',
+      correctAnswer: '',
+      order: questions.length,
+    });
+    setShowQuestionModal(true);
+  };
+
+  const handleEditQuestion = (question: AdminQuestion) => {
+    setEditingQuestion(question);
+    setShowQuestionModal(true);
+  };
+
+  const handleSaveQuestion = (question: any) => {
+    if (question.id) {
+      setQuestions(prev => prev.map(q => (q.id === question.id ? question : q)));
+    } else {
+      setQuestions(prev => [...prev, { ...question, order: prev.length }]);
+    }
+    setShowQuestionModal(false);
+    setEditingQuestion(null);
+  };
+
+  const handleCancelQuestion = () => {
+    setShowQuestionModal(false);
+    setEditingQuestion(null);
+  };
+
+  const handleDeleteQuestionLocal = (id?: string) => {
+    if (!id) return;
+    setQuestions(prev => prev.filter(q => q.id !== id));
+  };
+
   if (loading) {
     return <div className="text-center py-12">Chargement...</div>;
   }
@@ -102,11 +264,7 @@ export default function AdminCoursesPage() {
           <p className="text-gray-600">Créez et gérez les cours</p>
         </div>
         <button
-          onClick={() => {
-            setEditingCourse(null);
-            setFormData({ titre: '', description: '', matiereId: '', gameType: 'quiz', theoreticalContent: '', xpReward: 50 });
-            setShowModal(true);
-          }}
+          onClick={openNewCourseModal}
           className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
         >
           + Nouveau Cours
@@ -147,7 +305,7 @@ export default function AdminCoursesPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">
               {editingCourse ? 'Modifier le cours' : 'Nouveau cours'}
             </h2>
@@ -195,21 +353,6 @@ export default function AdminCoursesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type de jeu *
-                </label>
-                <select
-                  value={formData.gameType}
-                  onChange={(e) => setFormData({ ...formData, gameType: e.target.value as 'quiz' | 'memory' | 'match' })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900"
-                >
-                  <option value="quiz">Quiz (Questions à choix multiples)</option>
-                  <option value="memory">Memory (Paires de cartes)</option>
-                  <option value="match">Match (Relier les éléments)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Contenu théorique
                 </label>
                 <RichTextEditor
@@ -231,6 +374,66 @@ export default function AdminCoursesPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 />
               </div>
+              {/* Questions du cours */}
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">Questions du cours</h3>
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
+                  >
+                    + Ajouter une question
+                  </button>
+                </div>
+                {questions.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Aucune question pour l’instant. Ajoutez au moins une question (QCM, Memory ou Match).
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {questions
+                      .slice()
+                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                      .map((q, index) => (
+                      <div
+                        key={q.id || `local-${index}`}
+                        className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                            {q.question}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Type:{' '}
+                            {q.type === 'multiple_choice'
+                              ? 'QCM'
+                              : q.type === 'memory_pair'
+                              ? 'Memory'
+                              : 'Match'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditQuestion(q)}
+                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuestionLocal(q.id)}
+                            className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
@@ -242,7 +445,7 @@ export default function AdminCoursesPage() {
                   type="button"
                   onClick={() => {
                     setShowModal(false);
-                    setEditingCourse(null);
+                    resetCourseForm();
                   }}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >
@@ -250,6 +453,21 @@ export default function AdminCoursesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal d’édition de question */}
+      {showQuestionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
+              {editingQuestion?.id ? 'Modifier la question' : 'Nouvelle question'}
+            </h2>
+            <QuestionEditor
+              question={editingQuestion}
+              onSave={handleSaveQuestion}
+              onCancel={handleCancelQuestion}
+            />
           </div>
         </div>
       )}

@@ -77,6 +77,49 @@ export async function getCourse(courseId: string) {
   return apiRequest<any>(`/api/courses/${courseId}`);
 }
 
+// Admin - Course Questions
+export async function getAdminCourseQuestions(courseId: string) {
+  return apiRequest<any[]>(`/api/admin/courses/${courseId}/questions`);
+}
+
+export async function createAdminQuestion(
+  courseId: string, 
+  data: {
+    question: string;
+    type: 'multiple_choice' | 'memory_pair' | 'match_pair';
+    options?: string;
+    correctAnswer?: string;
+    order?: number;
+  }
+) {
+  return apiRequest<any>(`/api/admin/courses/${courseId}/questions`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminQuestion(
+  questionId: string,
+  data: Partial<{
+    question: string;
+    type: 'multiple_choice' | 'memory_pair' | 'match_pair';
+    options?: string;
+    correctAnswer?: string;
+    order?: number;
+  }>
+) {
+  return apiRequest<any>(`/api/admin/questions/${questionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminQuestion(questionId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/questions/${questionId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function completeCourse(courseId: string) {
   return apiRequest<{ success: boolean; xpGained: number; totalXp: number }>(
     `/api/courses/${courseId}/complete`,
