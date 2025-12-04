@@ -115,14 +115,8 @@ export default function AdminCoursesPage() {
         });
 
         // Met à jour / crée / supprime les questions une par une
-<<<<<<< HEAD
         // On se base sur les IDs chargés depuis l'API au moment où on a ouvert la modale
         const existingIds = new Set(initialQuestionIds);
-=======
-        const existingIds = new Set(
-          (editingCourse.questions || []).map((q: any) => q.id as string).filter((id: string): id is string => !!id)
-        );
->>>>>>> d8264abb074fe16356708db307a10cde250e95f3
         const currentIds = new Set(
           questions.filter(q => q.id).map(q => q.id as string)
         );
