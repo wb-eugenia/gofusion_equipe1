@@ -16,6 +16,11 @@ export default function RankingPage() {
   const loadRanking = async () => {
     try {
       const data = await getRanking();
+      console.log('Ranking data:', data); // Debug: vérifier les données reçues
+      console.log('Top 10 with skins:', data.top10?.map((s: any) => ({ 
+        prenom: s.prenom, 
+        activeSkin: s.activeSkin 
+      }))); // Debug: vérifier les skins actifs
       setRanking(data);
     } catch (error) {
       console.error('Error loading ranking:', error);
@@ -133,9 +138,24 @@ export default function RankingPage() {
                   </div>
 
                   {/* Avatar */}
-                  <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-primary to-secondary shadow-lg flex items-center justify-center">
-                    <span className="text-xl sm:text-2xl font-black text-white">{student.prenom.charAt(0)}</span>
-                  </div>
+                  {student.activeSkin && student.activeSkin.icon ? (
+                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-primary to-secondary shadow-lg flex items-center justify-center overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={student.activeSkin.icon} 
+                        alt={student.activeSkin.name || student.prenom}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          console.error('Error loading skin image:', student.activeSkin?.icon);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-primary to-secondary shadow-lg flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl font-black text-white">{student.prenom.charAt(0)}</span>
+                    </div>
+                  )}
 
                   {/* Info */}
                   <div className="text-center w-full">
@@ -168,6 +188,24 @@ export default function RankingPage() {
                 <span className="text-xl font-extrabold text-primary w-8">
                   {getMedal(index + 4)}
                 </span>
+                {student.activeSkin && student.activeSkin.icon ? (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={student.activeSkin.icon} 
+                      alt={student.activeSkin.name || student.prenom}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error('Error loading skin image:', student.activeSkin?.icon);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg font-black text-white">{student.prenom.charAt(0)}</span>
+                  </div>
+                )}
                 <div>
                   <p className="font-bold text-text hover:text-primary transition">
                     {student.prenom}

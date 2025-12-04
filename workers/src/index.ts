@@ -443,6 +443,36 @@ app.get('/api/student/ranking', async (c) => {
     .limit(10)
     .all();
   
+  // Get active skins for all users in top 10
+  const userIds = allUsers.map(u => u.id);
+  const activeSkins = userIds.length > 0 ? await db
+    .select({
+      userSkin: schema.userSkins,
+      item: schema.shopItems,
+    })
+    .from(schema.userSkins)
+    .innerJoin(schema.shopItems, eq(schema.userSkins.skinId, schema.shopItems.id))
+    .where(and(
+      inArray(schema.userSkins.userId, userIds),
+      eq(schema.userSkins.isActive, true)
+    ))
+    .all() : [];
+  
+  // Create a map of userId -> activeSkin
+  const activeSkinMap = new Map<string, { icon: string | null; name: string }>();
+  activeSkins.forEach(({ userSkin, item }) => {
+    activeSkinMap.set(userSkin.userId, {
+      icon: item.icon || null,
+      name: item.name,
+    });
+  });
+  
+  // Add activeSkin to each user
+  const usersWithSkins = allUsers.map(u => ({
+    ...u,
+    activeSkin: activeSkinMap.get(u.id) || null,
+  }));
+  
   // Get user position
   const allUsersRanked = await db
     .select()
@@ -453,7 +483,7 @@ app.get('/api/student/ranking', async (c) => {
   const userPosition = allUsersRanked.findIndex(u => u.id === user.id) + 1;
   
   return c.json({
-    top10: allUsers,
+    top10: usersWithSkins,
     userPosition,
     userXp: user.xp,
   });
@@ -2359,6 +2389,30 @@ app.get('/api/student/clans/details/:id', async (c) => {
     .where(eq(schema.clanMembers.clanId, clanId))
     .all();
   
+  // Get active skins for all members
+  const memberUserIds = members.map(m => m.user.id);
+  const activeSkins = memberUserIds.length > 0 ? await db
+    .select({
+      userSkin: schema.userSkins,
+      item: schema.shopItems,
+    })
+    .from(schema.userSkins)
+    .innerJoin(schema.shopItems, eq(schema.userSkins.skinId, schema.shopItems.id))
+    .where(and(
+      inArray(schema.userSkins.userId, memberUserIds),
+      eq(schema.userSkins.isActive, true)
+    ))
+    .all() : [];
+  
+  // Create a map of userId -> activeSkin
+  const activeSkinMap = new Map<string, { icon: string | null; name: string }>();
+  activeSkins.forEach(({ userSkin, item }) => {
+    activeSkinMap.set(userSkin.userId, {
+      icon: item.icon || null,
+      name: item.name,
+    });
+  });
+  
   // Convert joinedAt to timestamp if it's a Date object
   const membersData = members.map(m => {
     let joinedAtValue: number | Date = m.membership.joinedAt;
@@ -2375,6 +2429,7 @@ app.get('/api/student/clans/details/:id', async (c) => {
       ...m.user,
       role: m.membership.role,
       joinedAt: joinedAtValue as number,
+      activeSkin: activeSkinMap.get(m.user.id) || null,
     };
   });
 

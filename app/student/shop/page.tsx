@@ -50,7 +50,6 @@ export default function ShopPage() {
   const [items, setItems] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'skin' | 'powerup' | 'cosmetic'>('all');
   const { showSuccess, showError, ToastComponent } = useToast();
 
   useEffect(() => {
@@ -93,9 +92,7 @@ export default function ShopPage() {
     }
   };
 
-  const filteredItems = filter === 'all' 
-    ? items 
-    : items.filter(item => item.type === filter);
+  const filteredItems = items.filter(item => item.type === 'skin');
 
   if (loading) {
     return (
@@ -122,49 +119,6 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6 flex gap-2 flex-wrap">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-2xl font-bold transition-all duration-200 min-h-[44px] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 ${
-            filter === 'all' 
-              ? 'bg-primary text-white shadow-card hover:brightness-105' 
-              : 'bg-surface border-2 border-border text-text hover:bg-hover'
-          }`}
-        >
-          Tous
-        </button>
-        <button
-          onClick={() => setFilter('skin')}
-          className={`px-4 py-2 rounded-2xl font-bold transition-all duration-200 min-h-[44px] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 ${
-            filter === 'skin' 
-              ? 'bg-primary text-white shadow-card hover:brightness-105' 
-              : 'bg-surface border-2 border-border text-text hover:bg-hover'
-          }`}
-        >
-          Skins
-        </button>
-        <button
-          onClick={() => setFilter('powerup')}
-          className={`px-4 py-2 rounded-2xl font-bold transition-all duration-200 min-h-[44px] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 ${
-            filter === 'powerup' 
-              ? 'bg-primary text-white shadow-card hover:brightness-105' 
-              : 'bg-surface border-2 border-border text-text hover:bg-hover'
-          }`}
-        >
-          Power-ups
-        </button>
-        <button
-          onClick={() => setFilter('cosmetic')}
-          className={`px-4 py-2 rounded-2xl font-bold transition-all duration-200 min-h-[44px] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 ${
-            filter === 'cosmetic' 
-              ? 'bg-primary text-white shadow-card hover:brightness-105' 
-              : 'bg-surface border-2 border-border text-text hover:bg-hover'
-          }`}
-        >
-          Cosmétiques
-        </button>
-      </div>
 
       {/* Items Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

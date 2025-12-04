@@ -449,9 +449,20 @@ export default function ClansPage() {
                           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                              {member.prenom.charAt(0).toUpperCase()}
-                            </div>
+                            {member.activeSkin?.icon ? (
+                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img 
+                                  src={member.activeSkin.icon} 
+                                  alt={member.activeSkin.name || member.prenom}
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                {member.prenom.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium text-gray-900">{member.prenom}</p>
                               {member.joinedAt && (
