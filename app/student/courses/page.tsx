@@ -38,7 +38,16 @@ export default function CoursesPage() {
     : [];
 
   if (loading) {
-    return <div className="text-center py-12">Chargement des cours...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-4 animate-bounce">
+            <img src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" alt="Mascotte" className="w-24 h-24 mx-auto" />
+          </div>
+          <p className="text-xl font-bold text-text">Chargement des cours...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -51,8 +60,8 @@ export default function CoursesPage() {
         />
       </div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Mes Cours</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl sm:text-3xl font-black text-text mb-2">Mes Cours</h1>
+        <p className="text-textMuted">
           Complétez les cours pour gagner des 🍌 bananes et débloquer des badges !
         </p>
       </div>
@@ -61,30 +70,71 @@ export default function CoursesPage() {
         // Vue 1: Sélection de matière
         <>
           {matieres.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <p className="text-gray-500">Aucune matière disponible pour le moment.</p>
+            <div className="bg-surface rounded-lg shadow-card p-8 text-center">
+              <p className="text-textMuted">Aucune matière disponible pour le moment.</p>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {matieres.map((matiere) => {
                 const coursesCount = courses.filter((c) => c.matiereId === matiere.id).length;
+                const name = matiere.nom.toLowerCase();
+                const isFrancais = name.includes('français') || name.includes('francais');
+                const isSciences = name.includes('science');
+                const isMaths = name.includes('math') || name.includes('maths') || name.includes('mathématiques') || name.includes('mathematiques');
+                const isHistoire = name.includes('histoire');
+                const isGeographie = name.includes('géographie') || name.includes('geographie');
                 return (
                   <div
                     key={matiere.id}
                     onClick={() => setSelectedMatiere(matiere)}
-                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer"
+                    className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 cursor-pointer relative"
                   >
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    {isFrancais && (
+                      <img 
+                        src="/singes/singe-livre.png" 
+                        alt="Singe" 
+                        className="absolute -top-4 -right-4 w-20 h-20 object-contain"
+                      />
+                    )}
+                    {isSciences && (
+                      <img 
+                        src="/singes/gemini_generated_image_kwoz9ckwoz9ckwoz-removebg-preview_480.png" 
+                        alt="Singe" 
+                        className="absolute -top-4 -right-4 w-20 h-20 object-contain"
+                      />
+                    )}
+                    {isHistoire && (
+                      <img 
+                        src="/singes/singe-histoire.png" 
+                        alt="Singe" 
+                        className="absolute -top-4 -right-4 w-20 h-20 object-contain"
+                      />
+                    )}
+                    {isGeographie && (
+                      <img 
+                        src="/singes/singe-geographie.png" 
+                        alt="Singe" 
+                        className="absolute -top-4 -right-4 w-20 h-20 object-contain"
+                      />
+                    )}
+                    {isMaths && (
+                      <img 
+                        src="/singes/singe-maths.png" 
+                        alt="Singe" 
+                        className="absolute -top-4 -right-4 w-20 h-20 object-contain"
+                      />
+                    )}
+                    <h2 className="text-lg sm:text-xl font-extrabold text-text mb-2">
                       {matiere.nom}
                     </h2>
                     {matiere.description && (
-                      <p className="text-gray-600 mb-4">{matiere.description}</p>
+                      <p className="text-textMuted mb-4">{matiere.description}</p>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-blue-600 font-semibold">
+                      <span className="text-primary font-semibold">
                         {coursesCount} {coursesCount === 1 ? 'cours' : 'cours'}
                       </span>
-                      <span className="text-gray-400">→</span>
+                      <span className="text-inactive">→</span>
                     </div>
                   </div>
                 );
@@ -98,46 +148,47 @@ export default function CoursesPage() {
           <div className="mb-6">
             <button
               onClick={() => setSelectedMatiere(null)}
-              className="mb-4 flex items-center text-blue-600 hover:text-blue-700 transition"
+              className="mb-4 flex items-center text-primary hover:text-primary/80 transition min-h-[44px] font-bold"
             >
               <span className="mr-2">←</span>
               Retour aux matières
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl sm:text-2xl font-extrabold font-inter text-text mb-2">
               {selectedMatiere.nom}
             </h2>
             {selectedMatiere.description && (
-              <p className="text-gray-600">{selectedMatiere.description}</p>
+              <p className="text-textMuted">{selectedMatiere.description}</p>
             )}
           </div>
 
           {filteredCourses.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <p className="text-gray-500">Aucun cours disponible pour cette matière.</p>
+            <div className="bg-surface rounded-lg shadow-card p-8 text-center">
+              <p className="text-textMuted">Aucun cours disponible pour cette matière.</p>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredCourses.map((course) => (
                 <div
                   key={course.id}
-                  className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+                  className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200"
                 >
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-text mb-2">
                     {course.titre}
                   </h2>
-                  <p className="text-gray-600 mb-4">{course.description}</p>
+                  <p className="text-textMuted mb-4">{course.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-blue-600 font-semibold">
+                    <span className="text-secondary font-semibold">
                       🍌 +{course.xpReward} bananes
                     </span>
                     {course.completed ? (
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                        Complété
+                      <span className="px-4 py-2 bg-success/10 text-success rounded-2xl text-sm font-bold">
+                        ✓ Complété
                       </span>
                     ) : (
                       <button
                         onClick={() => router.push(`/student/courses/quiz?id=${course.id}`)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        className="px-5 py-2.5 bg-primary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 font-bold text-sm min-h-[44px]"
+                        style={{ boxShadow: '0 4px 0 0 rgba(157, 95, 47, 1)', borderBottom: '4px solid rgba(157, 95, 47, 1)' }}
                       >
                         Commencer
                       </button>

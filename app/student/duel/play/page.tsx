@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/useToast';
 import { getUser } from '@/lib/api';
 
 async function getDuelStatus(duelId: string) {
@@ -34,6 +35,7 @@ export default function DuelPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const duelId = searchParams?.get('id') || '';
+  const { showSuccess, showError, ToastComponent } = useToast();
 
   const [duel, setDuel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function DuelPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [toastShown, setToastShown] = useState(false);
 
   useEffect(() => {
     if (!duelId) return;
@@ -144,8 +147,13 @@ export default function DuelPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Chargement du duel...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-4 animate-bounce">
+            <img src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" alt="Mascotte" className="w-24 h-24 mx-auto" />
+          </div>
+          <p className="text-xl font-bold text-text">Chargement du duel...</p>
+        </div>
       </div>
     );
   }
@@ -175,7 +183,7 @@ export default function DuelPage() {
             )}
             <button
               onClick={() => router.push('/student/duel/lobby')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200"
             >
               Retour au lobby
             </button>
@@ -193,8 +201,21 @@ export default function DuelPage() {
       (duel.player2?.id === currentUserId && duel.winnerId === duel.player2?.id)
     );
     
+    // Show toast once when duel finishes
+    if (!toastShown) {
+      setToastShown(true);
+      if (isWinner) {
+        const reward = duel.betAmount > 0 ? duel.betAmount * 2 : 20;
+        showSuccess(`🎉 Victoire ! +${reward} 🍌 bananes gagnées !`);
+      } else {
+        showError('😔 Défaite... Réessaye pour ta revanche !');
+      }
+    }
+    
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+      <>
+        <ToastComponent />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Duel terminé</h1>
@@ -286,9 +307,12 @@ export default function DuelPage() {
     
     if (!currentQuestion) {
       return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-xl">Toutes les questions ont été répondues. En attente de ton adversaire...</div>
-        </div>
+        <>
+          <ToastComponent />
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-xl">Toutes les questions ont été répondues. En attente de ton adversaire...</div>
+          </div>
+        </>
       );
     }
 
@@ -303,7 +327,9 @@ export default function DuelPage() {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+      <>
+        <ToastComponent />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
             {/* Header */}
@@ -370,20 +396,24 @@ export default function DuelPage() {
             <button
               onClick={() => handleSubmitAnswer(currentQuestion.id)}
               disabled={!answers[currentQuestion.id]}
-              className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentQuestionIndex === totalQuestions - 1 ? 'Terminer le duel' : 'Répondre et continuer'}
             </button>
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-xl">État du duel inconnu</div>
-    </div>
+    <>
+      <ToastComponent />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">État du duel inconnu</div>
+      </div>
+    </>
   );
 }
 

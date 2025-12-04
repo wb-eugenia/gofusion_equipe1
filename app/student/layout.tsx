@@ -117,7 +117,7 @@ export default function StudentLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-background flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div 
@@ -129,16 +129,16 @@ export default function StudentLayout({
       {/* Sidebar */}
       <aside className={`
         sidebar fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+        w-64 bg-surface shadow-lift transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex flex-col
       `}>
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-blue-600">Gamification</h2>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+          <h2 className="text-lg font-extrabold text-primary">Gamification</h2>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
             aria-label="Fermer le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -148,7 +148,7 @@ export default function StudentLayout({
         </div>
 
         {/* User Info in Sidebar */}
-        <div className="px-4 py-4 border-b border-gray-200">
+        <div className="px-4 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
               <img 
@@ -158,8 +158,8 @@ export default function StudentLayout({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user.prenom}</p>
-              <p className="text-xs text-yellow-600">🍌 {user.xp} bananes</p>
+              <p className="text-sm font-bold text-text truncate">{user.prenom}</p>
+              <p className="text-xs font-medium text-secondary">🍌 {user.xp} bananes</p>
             </div>
           </div>
         </div>
@@ -172,10 +172,10 @@ export default function StudentLayout({
               href={item.href}
               onClick={() => setSidebarOpen(false)}
               className={`
-                flex items-center px-4 py-3 rounded-lg transition-colors
+                flex items-center px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px]
                 ${pathname === item.href
-                  ? 'bg-blue-100 text-blue-700 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                  : 'text-text hover:bg-hover hover:scale-[1.02]'
                 }
               `}
             >
@@ -189,11 +189,11 @@ export default function StudentLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+        <header className="bg-surface shadow-card border-b border-border h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Burger Menu Button (Mobile) */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="burger-button lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="burger-button lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
             aria-label="Ouvrir le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,8 +204,8 @@ export default function StudentLayout({
           {/* Desktop Header - User Info */}
           <div className="hidden lg:flex items-center gap-3 ml-auto">
             <div className="text-right">
-              <p className="text-sm font-semibold text-gray-900">{user.prenom}</p>
-              <p className="text-xs text-yellow-600">🍌 {user.xp} bananes</p>
+              <p className="text-sm font-bold text-text">{user.prenom}</p>
+              <p className="text-xs font-medium text-secondary">🍌 {user.xp} bananes</p>
             </div>
             <img 
               src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
@@ -217,8 +217,8 @@ export default function StudentLayout({
           {/* Mobile Header - User Info */}
           <div className="lg:hidden flex items-center gap-2 ml-auto">
             <div className="text-right">
-              <p className="text-xs sm:text-sm font-semibold text-gray-900">{user.prenom}</p>
-              <p className="text-xs text-yellow-600">🍌 {user.xp}</p>
+              <p className="text-xs sm:text-sm font-bold text-text">{user.prenom}</p>
+              <p className="text-xs font-medium text-secondary">🍌 {user.xp}</p>
             </div>
           </div>
         </header>

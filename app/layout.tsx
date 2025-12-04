@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Nunito } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const nunito = Nunito({ 
+  subsets: ['latin'], 
+  variable: '--font-nunito',
+  weight: ['400', '600', '700', '800', '900'],
+  display: 'swap'
+});
 
 export const metadata: Metadata = {
   title: 'Gamification App - Apprenez en vous amusant',
@@ -16,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={inter.className}>{children}</body>
+      <body className={`${nunito.variable} font-nunito antialiased`}>{children}</body>
     </html>
   );
 }

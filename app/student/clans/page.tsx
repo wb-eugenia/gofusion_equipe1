@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClans, getClansByMatiere, getMyClans, joinClan, getMatieres, createClan, leaveClan, getClanDetails } from '@/lib/api';
-import { usePopup } from '@/hooks/usePopup';
+import { useToast } from '@/hooks/useToast';
 
 export default function ClansPage() {
   const [clans, setClans] = useState<any[]>([]);
@@ -20,7 +20,7 @@ export default function ClansPage() {
     matiereId: '',
     description: '',
   });
-  const { showError, showSuccess, PopupComponent, showConfirm } = usePopup();
+  const { showSuccess, showError, ToastComponent } = useToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -71,76 +71,60 @@ export default function ClansPage() {
   };
 
   const handleJoinClan = async (clan: any) => {
-    showConfirm(
-      `Rejoindre le clan "${clan.name}" ?`,
-      async () => {
-        try {
-          await joinClan(clan.id);
-          showSuccess('Clan rejoint avec succès !');
-          // Attendre un peu pour que la base de données soit à jour
-          await new Promise(resolve => setTimeout(resolve, 500));
-          // Recharger toutes les données
-          setLoading(true);
-          await loadData();
-          // Recharger aussi les clans disponibles
-          if (selectedMatiere !== 'all') {
-            await loadClansByMatiere(selectedMatiere);
-          } else {
-            await loadAllClans();
-          }
-          setLoading(false);
-        } catch (error: any) {
-          showError(error.message || 'Erreur lors de la jointure');
-          setLoading(false);
-        }
-      },
-      'Confirmer la jointure',
-      'Rejoindre',
-      'Annuler'
-    );
+    try {
+      await joinClan(clan.id);
+      showSuccess(`✅ Clan "${clan.name}" rejoint avec succès !`);
+      // Attendre un peu pour que la base de données soit à jour
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Recharger toutes les données
+      setLoading(true);
+      await loadData();
+      // Recharger aussi les clans disponibles
+      if (selectedMatiere !== 'all') {
+        await loadClansByMatiere(selectedMatiere);
+      } else {
+        await loadAllClans();
+      }
+      setLoading(false);
+    } catch (error: any) {
+      showError(error.message || '❌ Erreur lors de la jointure');
+      setLoading(false);
+    }
   };
 
   const handleCreateClan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createFormData.name || !createFormData.matiereId) {
-      showError('Le nom et la matière sont requis');
+      showError('❌ Le nom et la matière sont requis');
       return;
     }
     
     try {
       await createClan(createFormData);
-      showSuccess('Clan créé avec succès ! Vous en êtes le leader.');
+      showSuccess('🎉 Clan créé avec succès ! Vous en êtes le leader.');
       setShowCreateModal(false);
       setCreateFormData({ name: '', matiereId: '', description: '' });
       await loadData();
     } catch (error: any) {
-      showError(error.message || 'Erreur lors de la création');
+      showError(error.message || '❌ Erreur lors de la création');
     }
   };
 
   const handleLeaveClan = async (clan: any) => {
-    showConfirm(
-      `Quitter le clan "${clan.name}" ?`,
-      async () => {
-        try {
-          await leaveClan(clan.id);
-          showSuccess('Clan quitté avec succès !');
-          // Recharger toutes les données
-          await loadData();
-          // Recharger aussi les clans disponibles si on filtre par matière
-          if (selectedMatiere !== 'all') {
-            await loadClansByMatiere(selectedMatiere);
-          } else {
-            await loadAllClans();
-          }
-        } catch (error: any) {
-          showError(error.message || 'Erreur lors de la sortie du clan');
-        }
-      },
-      'Confirmer la sortie',
-      'Quitter',
-      'Annuler'
-    );
+    try {
+      await leaveClan(clan.id);
+      showSuccess(`👋 Clan "${clan.name}" quitté avec succès !`);
+      // Recharger toutes les données
+      await loadData();
+      // Recharger aussi les clans disponibles si on filtre par matière
+      if (selectedMatiere !== 'all') {
+        await loadClansByMatiere(selectedMatiere);
+      } else {
+        await loadAllClans();
+      }
+    } catch (error: any) {
+      showError(error.message || '❌ Erreur lors de la sortie du clan');
+    }
   };
 
   const handleViewMembers = async (clanId: string) => {
@@ -157,7 +141,7 @@ export default function ClansPage() {
       }
       setSelectedClanDetails(details);
     } catch (error: any) {
-      showError(error.message || 'Erreur lors du chargement des membres');
+      showError(error.message || '❌ Erreur lors du chargement des membres');
       setShowMembersModal(false);
     } finally {
       setLoadingMembers(false);
@@ -194,12 +178,21 @@ export default function ClansPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Chargement...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-4 animate-bounce">
+            <img src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" alt="Mascotte" className="w-24 h-24 mx-auto" />
+          </div>
+          <p className="text-xl font-bold text-text">Chargement des clans...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
-      <PopupComponent />
+      <ToastComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -212,6 +205,19 @@ export default function ClansPage() {
             </button>
           </div>
           <p className="text-gray-600">Rejoignez un clan par matière pour collaborer avec d'autres étudiants et participer aux guerres hebdomadaires !</p>
+          {/* Weekly time banner (frontend-only visual) */}
+          <div className="mt-4 bg-secondary/15 border border-secondary/30 rounded-2xl p-4 shadow-card">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⏳</span>
+                <p className="font-extrabold text-text">Semaine en cours</p>
+              </div>
+              <p className="text-sm text-textMuted">Se termine dimanche 23:59</p>
+            </div>
+            <div className="h-3 w-full bg-inactive/30 rounded-full overflow-hidden">
+              <div className="h-3 bg-secondary rounded-full animate-[progressFill_1.2s_ease-out]" style={{ width: `${Math.min(100, Math.max(0, (new Date().getDay() / 6) * 100))}%` }} />
+            </div>
+          </div>
         </div>
 
         {/* Filter by Matiere */}
@@ -244,7 +250,7 @@ export default function ClansPage() {
                       {matiere?.nom || 'Matière inconnue'}
                     </h3>
                     {clans.map((clan: any) => (
-                      <div key={clan.id} className="p-4 border border-gray-200 rounded-lg bg-white">
+                      <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl bg-white shadow-card">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
@@ -260,6 +266,17 @@ export default function ClansPage() {
                             <p className="text-sm text-gray-600 mb-2">{clan.description || 'Pas de description'}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <span>{clan.memberCount || 0} membres</span>
+                            </div>
+                            {/* Weekly Objective (frontend-only visual) */}
+                            <div className="mt-3 bg-primary/5 border border-primary/20 rounded-xl p-3">
+                              <p className="text-xs font-bold text-primary mb-1">Objectif de la semaine</p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm text-text">Collecter 500 bananes</p>
+                                <span className="text-sm font-bold text-secondary">🍌 320 / 500</span>
+                              </div>
+                              <div className="mt-2 h-2 w-full bg-inactive/30 rounded-full overflow-hidden">
+                                <div className="h-2 bg-secondary rounded-full" style={{ width: '64%' }} />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -304,7 +321,7 @@ export default function ClansPage() {
               {clans.map((clan: any) => {
                 const alreadyMember = isInClan(clan.id);
                 return (
-                  <div key={clan.id} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
+                  <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl hover:shadow-md transition bg-white">
                     <div className="mb-3">
                       <h3 className="font-semibold text-gray-900 mb-1">{clan.name}</h3>
                       <p className="text-sm text-gray-600 mb-2">{clan.description || 'Pas de description'}</p>
@@ -312,6 +329,17 @@ export default function ClansPage() {
                         <span>{clan.matiere?.nom || 'Matière inconnue'}</span>
                         <span>•</span>
                         <span>{clan.memberCount || 0} membres</span>
+                      </div>
+                      {/* Weekly Objective for available clans (placeholder) */}
+                      <div className="bg-primary/5 border border-primary/20 rounded-xl p-3">
+                        <p className="text-xs font-bold text-primary mb-1">Objectif de la semaine</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-text">Collecter 500 bananes</p>
+                          <span className="text-sm font-bold text-secondary">🍌 0 / 500</span>
+                        </div>
+                        <div className="mt-2 h-2 w-full bg-inactive/30 rounded-full overflow-hidden">
+                          <div className="h-2 bg-secondary rounded-full" style={{ width: '0%' }} />
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">

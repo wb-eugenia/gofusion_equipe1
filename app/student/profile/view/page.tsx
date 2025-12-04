@@ -93,7 +93,16 @@ export default function ViewProfilePage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Chargement du profil...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-4 animate-bounce">
+            <img src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" alt="Mascotte" className="w-24 h-24 mx-auto" />
+          </div>
+          <p className="text-xl font-bold text-text">Chargement du profil...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!profile) {

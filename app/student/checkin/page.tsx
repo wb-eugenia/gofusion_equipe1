@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { checkInSession } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useToast } from '@/hooks/useToast';
 
 export default function CheckInPage() {
   const [code, setCode] = useState('');
@@ -14,6 +15,7 @@ export default function CheckInPage() {
   const [cameraError, setCameraError] = useState('');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const router = useRouter();
+  const { showSuccess, showError, ToastComponent } = useToast();
 
   const startScanning = async () => {
     try {
@@ -126,13 +128,17 @@ export default function CheckInPage() {
 
     try {
       const result = await checkInSession(codeToCheck.toUpperCase());
-      setSuccess(result.message || 'Inscription réussie !');
+      const successMsg = result.message || 'Inscription réussie !';
+      setSuccess(successMsg);
+      showSuccess('🎉 +10 🍌 bananes ajoutées à ton solde !');
       setTimeout(() => {
         // Redirect to session quiz page
         router.push(`/student/session/quiz?code=${codeToCheck.toUpperCase()}`);
-      }, 1000);
+      }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'inscription');
+      const errorMsg = err.message || 'Erreur lors de l\'inscription';
+      setError(errorMsg);
+      showError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -150,13 +156,15 @@ export default function CheckInPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <>
+      <ToastComponent />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-surface rounded-2xl shadow-card p-8 hover:shadow-lift transition-all duration-200">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-text mb-2">
             📱 Check-in Session
           </h1>
-          <p className="text-gray-600">
+          <p className="text-textMuted">
             Entrez le code de la session ou scannez le QR code
           </p>
         </div>
@@ -168,33 +176,33 @@ export default function CheckInPage() {
               <button
                 type="button"
                 onClick={startScanning}
-                className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition"
+                className="w-full py-3 bg-success text-white rounded-2xl font-bold hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 shadow-button"
               >
                 📷 Scanner le QR Code
               </button>
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-textMuted text-center">
                 En cliquant, vous autoriserez l'accès à votre caméra
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              <div id="qr-reader" className="w-full rounded-lg overflow-hidden bg-black min-h-[250px] flex items-center justify-center">
+              <div id="qr-reader" className="w-full rounded-2xl overflow-hidden bg-black min-h-[250px] flex items-center justify-center">
                 <p className="text-white text-sm">Positionnez le QR code dans le cadre</p>
               </div>
               <button
                 type="button"
                 onClick={stopScanning}
-                className="w-full py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition"
+                className="w-full py-3 bg-error text-white rounded-2xl font-bold hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 shadow-button"
               >
                 Arrêter le scan
               </button>
             </div>
           )}
           {cameraError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mt-3">
+            <div className="bg-error/10 border-2 border-error/30 text-error px-4 py-3 rounded-2xl text-sm mt-3">
               {cameraError}
               <div className="mt-2 text-xs">
-                <p className="font-semibold mb-1">Comment autoriser la caméra :</p>
+                <p className="font-bold mb-1">Comment autoriser la caméra :</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li><strong>Chrome/Edge :</strong> Cliquez sur l'icône dans la barre d'adresse → Autoriser la caméra</li>
                   <li><strong>Firefox :</strong> Cliquez sur l'icône → Permissions → Autoriser la caméra</li>
@@ -206,11 +214,11 @@ export default function CheckInPage() {
           )}
         </div>
 
-        <div className="text-center text-gray-500 mb-4">OU</div>
+        <div className="text-center text-textMuted font-bold mb-4">OU</div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="code" className="block text-sm font-extrabold text-text mb-2">
               Code de Session
             </label>
             <input
@@ -220,19 +228,19 @@ export default function CheckInPage() {
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               required
               maxLength={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-center text-2xl font-bold tracking-widest text-gray-900 bg-white"
+              className="w-full px-4 py-3 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-center text-2xl font-black tracking-widest text-text bg-white hover:border-primary/50"
               placeholder="ABC123"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="bg-error/10 border-2 border-error/30 text-error px-4 py-3 rounded-2xl font-bold">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div className="bg-success/10 border-2 border-success/30 text-success px-4 py-3 rounded-2xl font-bold">
               {success}
             </div>
           )}
@@ -240,17 +248,18 @@ export default function CheckInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-white py-3 rounded-2xl font-black hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-button"
           >
             {loading ? 'Inscription...' : 'S\'inscrire à la Session'}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
+        <div className="mt-6 text-center text-sm text-textMuted font-semibold">
           <p>Gagnez 10 🍌 bananes en vous inscrivant à une session !</p>
         </div>
       </div>
     </div>
+    </>
   );
 }
 

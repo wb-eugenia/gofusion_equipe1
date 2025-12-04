@@ -17,9 +17,9 @@ interface BadgeCardProps {
 export default function BadgeCard({ badge, unlocked }: BadgeCardProps) {
   return (
     <div
-      className={`relative rounded-lg p-6 border-2 transition-all ${
+      className={`relative rounded-lg p-6 border-2 transition-all duration-200 ${
         unlocked
-          ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-400 shadow-md'
+          ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-400 shadow-md hover:shadow-lift hover:-translate-y-1'
           : 'bg-gray-100 border-gray-300 opacity-60'
       }`}
     >

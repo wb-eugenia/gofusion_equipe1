@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getUser, getCourses, getMySkins, activateSkin, getFriends, getFriendRequests, acceptFriendRequest, rejectFriendRequest, removeFriend, getMyClans, leaveClan, getMatieres } from '@/lib/api';
 import BadgeCard from '@/components/BadgeCard';
-import { usePopup } from '@/hooks/usePopup';
+import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
@@ -16,7 +16,7 @@ export default function ProfilePage() {
   const [myClans, setMyClans] = useState<Record<string, any[]>>({});
   const [matieres, setMatieres] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { showError, showSuccess, PopupComponent, showConfirm } = usePopup();
+  const { showSuccess, showError, ToastComponent } = useToast();
   const router = useRouter();
 
   useEffect(() => {
@@ -62,39 +62,31 @@ export default function ProfilePage() {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await acceptFriendRequest(requestId);
-      showSuccess('Demande d\'ami acceptée !');
+      showSuccess('✅ Demande d\'ami acceptée !');
       await loadData();
     } catch (error: any) {
-      showError(error.message || 'Erreur lors de l\'acceptation');
+      showError(error.message || '❌ Erreur lors de l\'acceptation');
     }
   };
 
   const handleRejectRequest = async (requestId: string) => {
     try {
       await rejectFriendRequest(requestId);
-      showSuccess('Demande d\'ami refusée');
+      showSuccess('❌ Demande d\'ami refusée');
       await loadData();
     } catch (error: any) {
-      showError(error.message || 'Erreur lors du refus');
+      showError(error.message || '❌ Erreur lors du refus');
     }
   };
 
   const handleRemoveFriend = async (friendId: string, friendName: string) => {
-    showConfirm(
-      `Êtes-vous sûr de vouloir retirer ${friendName} de vos amis ?`,
-      async () => {
-        try {
-          await removeFriend(friendId);
-          showSuccess('Ami retiré');
-          await loadData();
-        } catch (error: any) {
-          showError(error.message || 'Erreur lors de la suppression');
-        }
-      },
-      'Confirmer la suppression',
-      'Supprimer',
-      'Annuler'
-    );
+    try {
+      await removeFriend(friendId);
+      showSuccess(`👋 ${friendName} retiré de vos amis`);
+      await loadData();
+    } catch (error: any) {
+      showError(error.message || '❌ Erreur lors de la suppression');
+    }
   };
 
   const handleLeaveClan = async (clanId: string, clanName: string) => {
@@ -116,11 +108,11 @@ export default function ProfilePage() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Chargement du profil...</div>;
+    return <div className="text-center py-12 text-textMuted">Chargement du profil...</div>;
   }
 
   if (!user) {
-    return <div className="text-center py-12">Erreur lors du chargement</div>;
+    return <div className="text-center py-12 text-textMuted">Erreur lors du chargement</div>;
   }
 
   const completedCourses = courses.filter((c) => c.completed).length;
@@ -129,80 +121,91 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PopupComponent />
+      <ToastComponent />
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Mon Profil</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-text mb-2">Mon Profil</h1>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Stats Card */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistiques</h2>
+          <div className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200">
+            <h2 className="text-lg sm:text-xl font-extrabold text-text mb-4">Statistiques</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Bananes Total</span>
-                <span className="text-2xl font-bold text-yellow-600">🍌 {user.xp}</span>
+                <span className="text-textMuted">Bananes Total</span>
+                <span className="text-2xl font-bold text-secondary">🍌 {user.xp}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Streak</span>
-                <span className="text-xl font-semibold text-orange-600">
+                <span className="text-textMuted">Streak</span>
+                <span className="text-xl font-semibold text-error">
                   🔥 {user.streakDays} jours
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Cours complétés</span>
-                <span className="text-xl font-semibold text-green-600">
+                <span className="text-textMuted">Cours complétés</span>
+                <span className="text-xl font-semibold text-success">
                   {completedCourses} / {totalCourses}
                 </span>
               </div>
               <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Progression</span>
-                  <span className="text-gray-600">{progressPercentage}%</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-textMuted font-bold">Progression</span>
+                  <span className="text-success font-extrabold text-base">{progressPercentage}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="relative w-full bg-inactive/30 rounded-full h-4">
                   <div
-                    className="bg-blue-600 h-3 rounded-full transition-all"
+                    className="bg-gradient-to-r from-success to-green-400 h-4 rounded-full transition-all duration-500 shadow-sm"
                     style={{ width: `${progressPercentage}%` }}
                   />
+                  {/* Jalons visuels */}
+                  <div className="absolute top-0 left-1/4 w-0.5 h-4 bg-white/50"></div>
+                  <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-white/50"></div>
+                  <div className="absolute top-0 left-3/4 w-0.5 h-4 bg-white/50"></div>
+                </div>
+                <div className="flex justify-between text-xs text-textMuted mt-1">
+                  <span>0</span>
+                  <span>25%</span>
+                  <span>50%</span>
+                  <span>75%</span>
+                  <span>100%</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Skin Card */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Mon Skin</h2>
+          <div className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200">
+            <h2 className="text-lg sm:text-xl font-extrabold text-text mb-4">Mon Skin</h2>
             {activeSkin ? (
               <div className="mb-4">
                 <div className="flex items-center justify-center mb-3">
                   {activeSkin.icon ? (
                     <img src={activeSkin.icon} alt={activeSkin.name} className="w-24 h-24 object-contain" />
                   ) : (
-                    <div className="w-24 h-24 bg-gray-200 rounded-lg flex items-center justify-center text-4xl">
+                    <div className="w-24 h-24 bg-inactive/20 rounded-lg flex items-center justify-center text-4xl">
                     </div>
                   )}
                 </div>
-                <p className="text-center font-semibold text-gray-900">{activeSkin.name}</p>
-                <p className="text-center text-sm text-gray-600">{activeSkin.description}</p>
+                <p className="text-center font-bold text-text">{activeSkin.name}</p>
+                <p className="text-center text-sm text-textMuted">{activeSkin.description}</p>
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-4">Aucun skin actif</p>
+              <p className="text-textMuted text-center py-4">Aucun skin actif</p>
             )}
             {skins.length > 0 ? (
               <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-2">Skins disponibles ({skins.length}):</p>
+                <p className="text-sm text-textMuted mb-2">Skins disponibles ({skins.length}):</p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {skins.map((skin: any) => (
                     <button
                       key={skin.id}
                       onClick={() => handleChangeSkin(skin.id)}
                       disabled={skin.isActive}
-                      className={`w-full p-2 rounded-lg text-left transition ${
+                      className={`w-full p-3 rounded-2xl text-left transition-all duration-200 min-h-[48px] font-medium ${
                         skin.isActive
-                          ? 'bg-blue-100 border-2 border-blue-500 cursor-default'
-                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                          ? 'bg-primary/10 border-2 border-primary cursor-default'
+                          : 'bg-surface border-2 border-border hover:bg-hover hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -212,9 +215,9 @@ export default function ProfilePage() {
                           <span className="text-xl"></span>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{skin.name}</p>
+                          <p className="text-sm font-medium text-text truncate">{skin.name}</p>
                           {skin.isActive && (
-                            <p className="text-xs text-blue-600">Actif</p>
+                            <p className="text-xs text-primary">Actif</p>
                           )}
                         </div>
                       </div>
@@ -223,17 +226,22 @@ export default function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-2">
+              <p className="text-sm text-textMuted text-center py-2">
                 Achetez des skins dans la boutique
               </p>
             )}
           </div>
 
           {/* Badges Card */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Badges débloqués ({user.badges?.length || 0})
-            </h2>
+          <div className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-extrabold text-text">
+                Badges débloqués
+              </h2>
+              <span className="text-sm font-extrabold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                {user.badges?.length || 0} / 8
+              </span>
+            </div>
             {user.badges && user.badges.length > 0 ? (
               <div className="grid grid-cols-2 gap-4">
                 {user.badges.map((badge: any) => (
@@ -241,7 +249,7 @@ export default function ProfilePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">
+              <p className="text-textMuted text-center py-8">
                 Aucun badge débloqué pour le moment
               </p>
             )}
@@ -249,14 +257,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Friends Section */}
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+        <div className="mt-6 bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-lg sm:text-xl font-extrabold text-text">
               Mes Amis ({friends.length})
             </h2>
             <button
               onClick={() => router.push('/student/friends')}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-primary hover:text-primary/80 transition min-h-[44px] flex items-center"
             >
               Voir tout →
             </button>
@@ -264,24 +272,26 @@ export default function ProfilePage() {
 
           {/* Friend Requests Received */}
           {friendRequests.received.length > 0 && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            <div className="mb-4 p-4 bg-secondary/10 border border-secondary/30 rounded-2xl">
+              <h3 className="text-sm font-extrabold text-text mb-2">
                 Demandes reçues ({friendRequests.received.length})
               </h3>
               <div className="space-y-2">
                 {friendRequests.received.map((request: any) => (
-                  <div key={request.id} className="flex items-center justify-between bg-white p-2 rounded">
-                    <span className="text-sm text-gray-700">{request.fromUser?.prenom}</span>
+                  <div key={request.id} className="flex items-center justify-between bg-surface p-2 rounded">
+                    <span className="text-sm text-text">{request.fromUser?.prenom}</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAcceptRequest(request.id)}
-                        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                        className="px-3 py-1.5 text-xs bg-success text-white rounded-xl hover:brightness-105 transition-all duration-150 font-bold min-h-[36px]"
+                        style={{ boxShadow: '0 2px 0 0 rgba(30, 130, 52, 1)' }}
                       >
                         Accepter
                       </button>
                       <button
                         onClick={() => handleRejectRequest(request.id)}
-                        className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                        className="px-3 py-1.5 text-xs bg-error text-white rounded-xl hover:brightness-105 transition-all duration-150 font-bold min-h-[36px]"
+                        style={{ boxShadow: '0 2px 0 0 rgba(204, 73, 73, 1)' }}
                       >
                         Refuser
                       </button>
@@ -298,28 +308,28 @@ export default function ProfilePage() {
               {friends.slice(0, 8).map((friend: any) => (
                 <div
                   key={friend.id}
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer"
+                  className="p-3 bg-background rounded-2xl hover:bg-hover hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-card active:scale-[0.98] active:translate-y-0 transition-all duration-200 cursor-pointer shadow-sm"
                   onClick={() => router.push(`/student/profile/view?userId=${friend.id}`)}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-gray-900 truncate">{friend.prenom}</span>
+                    <span className="text-sm font-semibold text-text truncate">{friend.prenom}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveFriend(friend.id, friend.prenom);
                       }}
-                      className="text-xs text-red-600 hover:text-red-800"
+                      className="text-xs text-error hover:text-error/80 transition min-h-[32px] min-w-[32px] flex items-center justify-center"
                       title="Retirer de mes amis"
                     >
                       ×
                     </button>
                   </div>
-                  <p className="text-xs text-yellow-600">🍌 {friend.xp} bananes</p>
+                  <p className="text-xs text-secondary font-medium">🍌 {friend.xp} bananes</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">
+            <p className="text-textMuted text-center py-4">
               Aucun ami pour le moment. Ajoutez des amis depuis le classement !
             </p>
           )}
@@ -328,7 +338,7 @@ export default function ProfilePage() {
             <div className="mt-4 text-center">
               <button
                 onClick={() => router.push('/student/friends')}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                className="text-sm text-primary hover:text-primary/80 transition min-h-[44px]"
               >
                 Voir tous mes amis ({friends.length})
               </button>
@@ -337,14 +347,14 @@ export default function ProfilePage() {
         </div>
 
         {/* Clans Section */}
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
+        <div className="mt-6 bg-surface rounded-2xl shadow-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-lg sm:text-xl font-extrabold text-text">
               Mes Clans
             </h2>
             <button
               onClick={() => router.push('/student/clans')}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-primary hover:text-primary/80 transition min-h-[44px] flex items-center"
             >
               Explorer les clans →
             </button>
@@ -355,22 +365,23 @@ export default function ProfilePage() {
               {Object.entries(myClans).map(([matiereId, clans]) => {
                 const matiere = matieres.find(m => m.id === matiereId);
                 return (
-                  <div key={matiereId} className="p-4 bg-gray-50 rounded-lg">
-                    <h3 className="font-semibold text-gray-900 mb-2">
+                  <div key={matiereId} className="p-4 bg-background rounded-2xl">
+                    <h3 className="font-extrabold text-text mb-2">
                       {matiere?.nom || 'Matière inconnue'}
                     </h3>
                     {clans.map((clan: any) => (
-                      <div key={clan.id} className="flex items-center justify-between p-3 bg-white rounded mb-2">
+                      <div key={clan.id} className="flex items-center justify-between p-3 bg-surface rounded-2xl mb-2 shadow-sm">
                         <div>
-                          <p className="font-medium text-gray-900">{clan.name}</p>
-                          <p className="text-sm text-gray-600">{clan.description || 'Pas de description'}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="font-medium text-text">{clan.name}</p>
+                          <p className="text-sm text-textMuted">{clan.description || 'Pas de description'}</p>
+                          <p className="text-xs text-primary font-medium">
                             {clan.role === 'leader' ? 'Leader' : 'Membre'}
                           </p>
                         </div>
                         <button
                           onClick={() => handleLeaveClan(clan.id, clan.name)}
-                          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                          className="px-3 py-1.5 text-sm bg-error text-white rounded-xl hover:brightness-105 transition-all duration-150 font-bold min-h-[36px]"
+                          style={{ boxShadow: '0 2px 0 0 rgba(204, 73, 73, 1)' }}
                         >
                           Quitter
                         </button>
@@ -381,7 +392,7 @@ export default function ProfilePage() {
               })}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">
+            <p className="text-textMuted text-center py-4">
               Vous n'êtes dans aucun clan. Rejoignez-en un depuis la page des clans !
             </p>
           )}

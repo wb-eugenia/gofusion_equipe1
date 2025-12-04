@@ -354,19 +354,19 @@ export default function DuelLobbyPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">⚔️ Lobby de Duel</h1>
-          <p className="text-gray-600">Affrontez d'autres joueurs en 1v1 !</p>
+          <h1 className="text-3xl font-bold text-text mb-2">⚔️ Lobby de Duel</h1>
+          <p className="text-textMuted">Affrontez d'autres joueurs en 1v1 !</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowQuickDuelModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition font-semibold shadow-md"
+            className="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition font-semibold shadow-button"
           >
             ⚡ Duel Rapide
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow-md"
+            className="px-4 py-2 bg-primary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition font-semibold shadow-button"
           >
             + Créer un duel
           </button>
@@ -375,11 +375,11 @@ export default function DuelLobbyPage() {
 
       {/* Connection Status */}
       {connectionStatus !== 'connected' && (
-        <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-          connectionStatus === 'reconnecting' ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'
+        <div className={`mb-4 p-3 rounded-2xl flex items-center gap-2 border-2 ${
+          connectionStatus === 'reconnecting' ? 'bg-warning/10 border-warning/30' : 'bg-error/10 border-error/30'
         }`}>
           <div className={`w-2 h-2 rounded-full ${
-            connectionStatus === 'reconnecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+            connectionStatus === 'reconnecting' ? 'bg-warning animate-pulse' : 'bg-error'
           }`}></div>
           <span className="text-sm font-medium">
             {connectionStatus === 'reconnecting' ? 'Reconnexion en cours...' : 'Connexion perdue'}
@@ -389,33 +389,33 @@ export default function DuelLobbyPage() {
 
       {/* Stats Widget */}
       {user && (
-        <div className="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+        <div className="mb-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-2xl p-4 border-2 border-border">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4 text-center">
             <div>
-              <p className="text-sm text-gray-600">Vos bananes</p>
-              <p className="text-2xl font-bold text-yellow-600">{user.xp || 0} 🍌</p>
+              <p className="text-sm text-textMuted">Vos bananes</p>
+              <p className="text-2xl font-bold text-secondary">{user.xp || 0} 🍌</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Duels disponibles</p>
-              <p className="text-2xl font-bold text-purple-600">{filteredDuels.filter(d => d.status === 'waiting' && !d.player2Id && d.player1Id !== user.id).length}</p>
+              <p className="text-sm text-textMuted">Duels disponibles</p>
+              <p className="text-2xl font-bold text-primary">{filteredDuels.filter(d => d.status === 'waiting' && !d.player2Id && d.player1Id !== user.id).length}</p>
             </div>
             {duelStats && (
               <>
                 <div>
-                  <p className="text-sm text-gray-600">Victoires</p>
-                  <p className="text-2xl font-bold text-green-600">{duelStats.wins || 0} 🏆</p>
+                  <p className="text-sm text-textMuted">Victoires</p>
+                  <p className="text-2xl font-bold text-success">{duelStats.wins || 0} 🏆</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Défaites</p>
-                  <p className="text-2xl font-bold text-red-600">{duelStats.losses || 0}</p>
+                  <p className="text-sm text-textMuted">Défaites</p>
+                  <p className="text-2xl font-bold text-error">{duelStats.losses || 0}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Taux de victoire</p>
-                  <p className="text-2xl font-bold text-blue-600">{duelStats.winRate || 0}%</p>
+                  <p className="text-sm text-textMuted">Taux de victoire</p>
+                  <p className="text-2xl font-bold text-primary">{duelStats.winRate || 0}%</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Bananes nettes</p>
-                  <p className={`text-2xl font-bold ${(duelStats.netBananas || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className="text-sm text-textMuted">Bananes nettes</p>
+                  <p className={`text-2xl font-bold ${(duelStats.netBananas || 0) >= 0 ? 'text-success' : 'text-error'}`}>
                     {duelStats.netBananas >= 0 ? '+' : ''}{duelStats.netBananas || 0} 🍌
                   </p>
                 </div>
@@ -423,8 +423,8 @@ export default function DuelLobbyPage() {
             )}
           </div>
           {duelStats && duelStats.winRate >= 70 && duelStats.finishedDuels >= 5 && (
-            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-center">
-              <p className="text-sm font-semibold text-yellow-800">
+            <div className="mt-4 p-3 bg-secondary/10 border-2 border-secondary/30 rounded-2xl text-center">
+              <p className="text-sm font-semibold text-secondary">
                 🏅 Champion ! Taux de victoire exceptionnel de {duelStats.winRate}%
               </p>
             </div>
@@ -433,7 +433,7 @@ export default function DuelLobbyPage() {
       )}
 
       {/* Filters and Search */}
-      <div className="mb-6 bg-white rounded-lg shadow-md p-4 space-y-4">
+      <div className="mb-6 bg-surface rounded-2xl shadow-card p-4 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
@@ -442,16 +442,16 @@ export default function DuelLobbyPage() {
               placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 pl-10 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent"
             />
-            <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            <span className="absolute left-3 top-2.5 text-textMuted">🔍</span>
           </div>
 
           {/* Matiere Filter */}
           <select
             value={filterMatiere}
             onChange={(e) => setFilterMatiere(e.target.value as FilterOption)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value="all">Toutes les matières</option>
             {matieres.map((matiere) => (
@@ -465,7 +465,7 @@ export default function DuelLobbyPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             <option value="newest">Plus récents</option>
             <option value="oldest">Plus anciens</option>
@@ -481,7 +481,7 @@ export default function DuelLobbyPage() {
               onChange={(e) => setShowMyDuels(e.target.checked)}
               className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
             />
-            <span className="text-sm font-medium text-gray-700">Mes duels uniquement</span>
+            <span className="text-sm font-medium text-text">Mes duels uniquement</span>
           </label>
         </div>
       </div>
@@ -502,21 +502,21 @@ export default function DuelLobbyPage() {
       {/* Error Popup */}
       {errorPopup.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl animate-fadeIn">
+          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-card animate-fadeIn">
             <div className="flex items-center justify-center mb-4">
-              <div className={`w-16 h-16 ${errorPopup.isInsufficientBananas ? 'bg-yellow-100' : 'bg-red-100'} rounded-full flex items-center justify-center`}>
+              <div className={`w-16 h-16 ${errorPopup.isInsufficientBananas ? 'bg-secondary/10' : 'bg-error/10'} rounded-full flex items-center justify-center`}>
                 <span className="text-3xl">{errorPopup.isInsufficientBananas ? '🍌' : '❌'}</span>
               </div>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+            <h3 className="text-xl font-bold text-text text-center mb-2">
               {errorPopup.isInsufficientBananas ? 'Bananes insuffisantes' : 'Erreur'}
             </h3>
-            <p className="text-gray-700 text-center mb-6">{errorPopup.message}</p>
+            <p className="text-text text-center mb-6">{errorPopup.message}</p>
             
             {errorPopup.isInsufficientBananas ? (
               <div className="space-y-3">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-yellow-800 text-center">
+                <div className="bg-secondary/10 border-2 border-secondary/30 rounded-2xl p-4 mb-4">
+                  <p className="text-sm text-secondary text-center">
                     Vous avez {user?.xp || 0} 🍌 bananes
                     {errorPopup.requiredAmount && (
                       <span className="block mt-1 font-semibold">
@@ -531,7 +531,7 @@ export default function DuelLobbyPage() {
                       setErrorPopup({ show: false, message: '' });
                       router.push('/student/shop');
                     }}
-                    className="w-full px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition font-semibold flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 bg-secondary text-white rounded-2xl hover:brightness-105 transition font-semibold flex items-center justify-center gap-2"
                   >
                     Acheter des bananes
                   </button>
@@ -540,14 +540,14 @@ export default function DuelLobbyPage() {
                       setErrorPopup({ show: false, message: '' });
                       router.push('/student/courses');
                     }}
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 bg-primary text-white rounded-2xl hover:brightness-105 transition font-semibold flex items-center justify-center gap-2"
                   >
                     Faire des cours pour gagner des bananes
                   </button>
                 </div>
                 <button
                   onClick={() => setErrorPopup({ show: false, message: '' })}
-                  className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold"
+                  className="w-full px-4 py-2 bg-surface text-text rounded-2xl hover:shadow-lift transition font-semibold border-2 border-border"
                 >
                   Annuler
                 </button>
@@ -555,7 +555,7 @@ export default function DuelLobbyPage() {
             ) : (
               <button
                 onClick={() => setErrorPopup({ show: false, message: '' })}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
+                className="w-full px-4 py-2 bg-error text-white rounded-2xl hover:brightness-105 transition font-semibold"
               >
                 Fermer
               </button>
@@ -567,7 +567,7 @@ export default function DuelLobbyPage() {
       {/* Quick Duel Modal */}
       {showQuickDuelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl animate-fadeIn">
+          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-card animate-fadeIn">
             <h2 className="text-2xl font-bold mb-4">⚡ Duel Rapide</h2>
             <p className="text-gray-600 mb-6">
               Rejoignez automatiquement un duel disponible ou créez-en un nouveau avec les paramètres par défaut.
@@ -575,13 +575,13 @@ export default function DuelLobbyPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleQuickDuel}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition font-semibold"
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button"
               >
                 Lancer
               </button>
               <button
                 onClick={() => setShowQuickDuelModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                className="flex-1 px-4 py-2 bg-surface text-text rounded-2xl border-2 border-border hover:shadow-lift transition"
               >
                 Annuler
               </button>
@@ -593,17 +593,17 @@ export default function DuelLobbyPage() {
       {/* Create Duel Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl animate-fadeIn">
+          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-card animate-fadeIn">
             <h2 className="text-2xl font-bold mb-4">Créer un duel</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text mb-1">
                   Matière
                 </label>
                 <select
                   value={selectedMatiere}
                   onChange={(e) => setSelectedMatiere(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="">Sélectionner une matière</option>
                   {matieres.map((matiere) => (
@@ -614,7 +614,7 @@ export default function DuelLobbyPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text mb-1">
                   Mise en bananes <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -628,9 +628,9 @@ export default function DuelLobbyPage() {
                   }}
                   placeholder="Saisissez le nombre de bananes"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border-2 border-border rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-textMuted mt-1">
                   Vous avez {user?.xp || 0} 🍌 bananes disponibles (minimum: 1)
                 </p>
                 
@@ -642,10 +642,10 @@ export default function DuelLobbyPage() {
                         key={amount}
                         type="button"
                         onClick={() => setBetAmount(amount)}
-                        className={`px-3 py-1 text-sm rounded-lg transition ${
+                        className={`px-3 py-1 text-sm rounded-2xl transition ${
                           betAmount === amount
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary text-white'
+                            : 'bg-surface text-text border-2 border-border hover:shadow-lift'
                         }`}
                       >
                         {amount} 🍌
@@ -655,10 +655,10 @@ export default function DuelLobbyPage() {
                       <button
                         type="button"
                         onClick={() => setBetAmount(user.xp)}
-                        className={`px-3 py-1 text-sm rounded-lg transition ${
+                        className={`px-3 py-1 text-sm rounded-2xl transition ${
                           betAmount === user.xp
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary text-white'
+                            : 'bg-surface text-text border-2 border-border hover:shadow-lift'
                         }`}
                       >
                         Max ({user.xp})
@@ -670,7 +670,7 @@ export default function DuelLobbyPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleCreateDuel}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button"
                 >
                   Créer
                 </button>
@@ -680,7 +680,7 @@ export default function DuelLobbyPage() {
                     setSelectedMatiere('');
                     setBetAmount('');
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  className="flex-1 px-4 py-2 bg-surface text-text rounded-2xl border-2 border-border hover:shadow-lift transition"
                 >
                   Annuler
                 </button>
@@ -693,14 +693,14 @@ export default function DuelLobbyPage() {
       {/* Duels List */}
       <div className="space-y-4">
         {filteredDuels.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="bg-gradient-to-br from-background to-surface rounded-2xl p-12 text-center border-2 border-dashed border-border">
             <div className="text-6xl mb-4">⚔️</div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-2xl font-bold text-text mb-2">
               {searchQuery || filterMatiere !== 'all' || showMyDuels
                 ? 'Aucun duel ne correspond à vos critères'
                 : 'Aucun duel en attente'}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-textMuted mb-6">
               {searchQuery || filterMatiere !== 'all' || showMyDuels
                 ? 'Essayez de modifier vos filtres de recherche'
                 : 'Soyez le premier à créer un duel et défiez vos amis !'}
@@ -712,7 +712,7 @@ export default function DuelLobbyPage() {
                 setShowMyDuels(false);
                 setShowCreateModal(true);
               }}
-              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold shadow-lg transform hover:scale-105"
+              className="px-6 py-3 bg-primary text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button transform hover:-translate-y-0.5 active:scale-[0.98]"
             >
               Créer le premier duel
             </button>
@@ -720,7 +720,7 @@ export default function DuelLobbyPage() {
         ) : (
           <>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-text">
                 Duels disponibles ({filteredDuels.length})
               </h2>
             </div>
@@ -732,52 +732,52 @@ export default function DuelLobbyPage() {
               return (
                 <div
                   key={duel.id}
-                  className={`bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-all duration-300 ${
-                    isRecentDuel ? 'ring-2 ring-purple-400 animate-pulse-subtle' : ''
+                  className={`bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift transition-all duration-300 ${
+                    isRecentDuel ? 'ring-2 ring-primary animate-pulse-subtle' : ''
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex-1 w-full">
                       <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <h3 className="text-xl font-semibold text-gray-900">
+                        <h3 className="text-xl font-semibold text-text">
                           {duel.matiere?.nom || 'Matière inconnue'}
                         </h3>
                         {isMyDuel && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                          <span className="px-2 py-1 bg-primary/10 text-primary rounded-2xl text-xs font-bold">
                             Votre duel
                           </span>
                         )}
                         {duel.status === 'waiting' && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium animate-pulse">
+                          <span className="px-2 py-1 bg-secondary/10 text-secondary rounded-2xl text-xs font-bold animate-pulse">
                             En attente
                           </span>
                         )}
                         {isRecentDuel && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                          <span className="px-2 py-1 bg-success/10 text-success rounded-2xl text-xs font-bold">
                             ✨ Nouveau
                           </span>
                         )}
                       </div>
                       
                       <div className="space-y-1">
-                        <p className="text-gray-600">
+                        <p className="text-textMuted">
                           Créé par: <strong>{duel.player1?.prenom || 'Joueur inconnu'}</strong>
                         </p>
                         {duel.player1 && (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-textMuted">
                             Niveau: {Math.floor((duel.player1.xp || 0) / 100)} • {duel.player1.xp || 0} 🍌
                           </p>
                         )}
                         {duel.betAmount > 0 && (
-                          <p className="text-sm font-semibold text-yellow-600">
+                          <p className="text-sm font-extrabold text-secondary">
                             🍌 Mise: {duel.betAmount} bananes (Pot: {duel.betAmount * 2} 🍌)
                           </p>
                         )}
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-textMuted">
                           {formatTimeAgo(duel.createdAt)}
                         </p>
                         {duel.matiere && (
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-textMuted">
                             {duel.matiere.description || 'Testez vos connaissances'}
                           </p>
                         )}
@@ -788,7 +788,7 @@ export default function DuelLobbyPage() {
                       {canJoin && (
                         <button
                           onClick={() => handleJoinDuel(duel.id)}
-                          className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition font-semibold shadow-md transform hover:scale-105"
+                          className="px-6 py-2 bg-success text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button transform hover:-translate-y-0.5 active:scale-[0.98]"
                         >
                           ✅ Rejoindre
                         </button>
@@ -797,20 +797,20 @@ export default function DuelLobbyPage() {
                         <>
                           <button
                             onClick={() => router.push(`/student/duel/play?id=${duel.id}`)}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold shadow-md"
+                            className="px-6 py-2 bg-primary text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button"
                           >
                             👁️ Voir
                           </button>
                           <button
                             onClick={() => handleDeleteDuel(duel.id)}
-                            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold shadow-md"
+                            className="px-6 py-2 bg-error text-white rounded-2xl hover:brightness-105 transition font-semibold shadow-button"
                           >
                             🗑️ Supprimer
                           </button>
                         </>
                       )}
                       {!canJoin && !isMyDuel && (
-                        <span className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg">
+                        <span className="px-4 py-2 bg-surface text-text rounded-2xl border-2 border-border">
                           Complet
                         </span>
                       )}

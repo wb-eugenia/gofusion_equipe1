@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getCourse, completeCourse, submitStressLevel } from '@/lib/api';
 import StressSlider from '@/components/StressSlider';
+import { useToast } from '@/hooks/useToast';
 
 export default function CourseQuizPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const courseId = searchParams?.get('id') || '';
+  const { showSuccess, showError, ToastComponent } = useToast();
   
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -84,13 +86,13 @@ export default function CourseQuizPage() {
     if (calculatedScore >= 50) {
       try {
         const result = await completeCourse(courseId);
-        setTimeout(() => {
-          alert(`🎉 Cours complété ! Score: ${calculatedScore}% (+${result.xpGained} 🍌 bananes)`);
-          router.push('/student/courses');
-        }, 1000);
+        showSuccess(`🎉 Cours complété ! +${result.xpGained} 🍌 bananes gagnées !`);
       } catch (error: any) {
         console.error('Error completing course:', error);
+        showError('Erreur lors de la validation du cours');
       }
+    } else {
+      showError('❌ Score insuffisant (minimum 50% requis)');
     }
     
     setSubmitting(false);
@@ -98,8 +100,13 @@ export default function CourseQuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Chargement du cours...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-4 animate-bounce">
+            <img src="/singes/gemini_generated_image_v5b4ivv5b4ivv5b4-removebg-preview_480.png" alt="Mascotte" className="w-24 h-24 mx-auto" />
+          </div>
+          <p className="text-xl font-bold text-text">Chargement du cours...</p>
+        </div>
       </div>
     );
   }
@@ -160,7 +167,7 @@ export default function CourseQuizPage() {
                 await submitStressLevel(courseId, stressBefore, stressAfter);
                 router.push('/student/courses');
               }}
-              className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="w-full mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200"
             >
               Terminer
             </button>
@@ -174,7 +181,9 @@ export default function CourseQuizPage() {
     const correctAnswers = course.questions.filter((q: any) => answers[q.id] === q.correctAnswer).length;
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+      <>
+        <ToastComponent />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">🎯 Résultats</h1>
@@ -197,13 +206,14 @@ export default function CourseQuizPage() {
             )}
             <button
               onClick={() => router.push('/student/courses')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200"
             >
               Retour aux cours
             </button>
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -222,9 +232,11 @@ export default function CourseQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+    <>
+      <ToastComponent />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -300,14 +312,14 @@ export default function CourseQuizPage() {
             <button
               onClick={handlePrevious}
               disabled={currentQuestionIndex === 0}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ← Précédent
             </button>
             <button
               onClick={handleNext}
               disabled={!answers[currentQuestion.id]}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentQuestionIndex === totalQuestions - 1 ? 'Terminer' : 'Suivant →'}
             </button>
@@ -315,6 +327,7 @@ export default function CourseQuizPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

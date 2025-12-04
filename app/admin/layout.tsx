@@ -52,7 +52,7 @@ export default function AdminLayout({
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-background flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div 
@@ -64,16 +64,16 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className={`
         sidebar fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+        w-64 bg-surface shadow-lift transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex flex-col
       `}>
         {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Admin</h2>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+          <h2 className="text-lg font-extrabold text-primary">Admin</h2>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
             aria-label="Fermer le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -90,10 +90,10 @@ export default function AdminLayout({
               href={item.href}
               onClick={() => setSidebarOpen(false)}
               className={`
-                flex items-center px-4 py-3 rounded-lg transition-colors
+                flex items-center px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px]
                 ${pathname === item.href
-                  ? 'bg-purple-100 text-purple-700 font-semibold'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                  : 'text-text hover:bg-hover hover:scale-[1.02]'
                 }
               `}
             >
@@ -104,11 +104,11 @@ export default function AdminLayout({
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
+        <div className="p-4 border-t border-border space-y-2">
           <Link
             href="/student/courses"
             onClick={() => setSidebarOpen(false)}
-            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center px-4 py-2 text-sm text-text hover:bg-hover rounded-lg transition-all duration-200 min-h-[44px]"
           >
             <span className="mr-3"></span>
             Vue Étudiant
@@ -118,7 +118,7 @@ export default function AdminLayout({
               handleLogout();
               setSidebarOpen(false);
             }}
-            className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="w-full flex items-center px-4 py-2 text-sm text-error hover:bg-error/10 rounded-lg transition-all duration-200 min-h-[44px]"
           >
             <span className="mr-3"></span>
             Déconnexion
@@ -129,11 +129,11 @@ export default function AdminLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+        <header className="bg-surface shadow-card border-b border-border h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Burger Menu Button (Mobile) */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="burger-button lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="burger-button lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
             aria-label="Ouvrir le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -145,13 +145,13 @@ export default function AdminLayout({
           <div className="hidden lg:flex items-center space-x-4 ml-auto">
             <Link
               href="/student/courses"
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="text-sm text-textMuted hover:text-text transition-colors min-h-[44px] flex items-center"
             >
               Vue Étudiant
             </Link>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-900 transition-colors"
+              className="text-sm text-error hover:text-error/80 transition-colors min-h-[44px]"
             >
               Déconnexion
             </button>
