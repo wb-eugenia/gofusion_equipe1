@@ -16,11 +16,6 @@ export default function RankingPage() {
   const loadRanking = async () => {
     try {
       const data = await getRanking();
-      console.log('Ranking data:', data); // Debug: vérifier les données reçues
-      console.log('Top 10 with skins:', data.top10?.map((s: any) => ({ 
-        prenom: s.prenom, 
-        activeSkin: s.activeSkin 
-      }))); // Debug: vérifier les skins actifs
       setRanking(data);
     } catch (error) {
       console.error('Error loading ranking:', error);

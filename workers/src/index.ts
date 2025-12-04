@@ -3775,10 +3775,49 @@ app.get('/api/student/duels/:id/status', async (c) => {
     .where(eq(schema.matieres.id, duel.duel.matiereId))
     .get() : null;
   
+  // Get active skins for both players
+  const playerIds = [duel.duel.player1Id];
+  if (duel.duel.player2Id) {
+    playerIds.push(duel.duel.player2Id);
+  }
+  
+  const activeSkins = playerIds.length > 0 ? await db
+    .select({
+      userSkin: schema.userSkins,
+      item: schema.shopItems,
+    })
+    .from(schema.userSkins)
+    .innerJoin(schema.shopItems, eq(schema.userSkins.skinId, schema.shopItems.id))
+    .where(and(
+      inArray(schema.userSkins.userId, playerIds),
+      eq(schema.userSkins.isActive, true)
+    ))
+    .all() : [];
+  
+  // Create a map of userId -> activeSkin
+  const activeSkinMap = new Map<string, { icon: string | null; name: string }>();
+  activeSkins.forEach(({ userSkin, item }) => {
+    activeSkinMap.set(userSkin.userId, {
+      icon: item.icon || null,
+      name: item.name,
+    });
+  });
+  
+  // Add activeSkin to player1 and player2
+  const player1WithSkin = duel.player1 ? {
+    ...duel.player1,
+    activeSkin: activeSkinMap.get(duel.player1.id) || null,
+  } : null;
+  
+  const player2WithSkin = player2 ? {
+    ...player2,
+    activeSkin: activeSkinMap.get(player2.id) || null,
+  } : null;
+  
   return c.json({
     ...duel.duel,
-    player1: duel.player1,
-    player2: player2,
+    player1: player1WithSkin,
+    player2: player2WithSkin,
     course: duel.course,
     matiere: matiere,
     player1Score,

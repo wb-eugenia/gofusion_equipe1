@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getUser } from '@/lib/api';
+import { getUser, getMySkins } from '@/lib/api';
 
 export default function StudentLayout({
   children,
@@ -11,6 +11,7 @@ export default function StudentLayout({
   children: React.ReactNode;
 }) {
   const [user, setUser] = useState<any>(null);
+  const [activeSkin, setActiveSkin] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
@@ -29,8 +30,14 @@ export default function StudentLayout({
     localStorage.setItem('currentSessionId', sessionStartId);
     localStorage.setItem('sessionStartTime', startTime.toString());
 
-    getUser()
-      .then(setUser)
+    Promise.all([
+      getUser(),
+      getMySkins().catch(() => ({ skins: [], activeSkin: null }))
+    ])
+      .then(([userData, skinsData]) => {
+        setUser(userData);
+        setActiveSkin(skinsData.activeSkin);
+      })
       .catch(() => {
         localStorage.removeItem('sessionId');
         router.push('/');
@@ -94,6 +101,19 @@ export default function StudentLayout({
     };
   }, [sidebarOpen]);
 
+  // Reload skin when pathname changes (to update after skin activation)
+  useEffect(() => {
+    if (user) {
+      getMySkins()
+        .then((skinsData) => {
+          setActiveSkin(skinsData.activeSkin);
+        })
+        .catch(() => {
+          // Ignore errors
+        });
+    }
+  }, [pathname, user]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -150,13 +170,20 @@ export default function StudentLayout({
         {/* User Info in Sidebar */}
         <div className="px-4 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <img 
-                src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
-                alt="Singe" 
-                className="w-12 h-12 object-contain"
-              />
-            </div>
+            {activeSkin && activeSkin.icon ? (
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={activeSkin.icon} 
+                  alt={activeSkin.name || user.prenom}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center">
+                <span className="text-lg font-black text-white">{user.prenom.charAt(0)}</span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-text truncate">{user.prenom}</p>
               <p className="text-xs font-medium text-secondary">🍌 {user.xp} bananes</p>
@@ -223,11 +250,20 @@ export default function StudentLayout({
               <p className="text-sm font-bold text-text">{user.prenom}</p>
               <p className="text-xs font-medium text-secondary">🍌 {user.xp} bananes</p>
             </div>
-            <img 
-              src="/singes/gemini_generated_image_d3kiodd3kiodd3ki-removebg-preview_480.png" 
-              alt="Singe" 
-              className="w-12 h-12 object-contain"
-            />
+            {activeSkin && activeSkin.icon ? (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={activeSkin.icon} 
+                  alt={activeSkin.name || user.prenom}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary shadow-md flex items-center justify-center">
+                <span className="text-lg font-black text-white">{user.prenom.charAt(0)}</span>
+              </div>
+            )}
           </div>
 
           {/* Mobile Header - User Info */}

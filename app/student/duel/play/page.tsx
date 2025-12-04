@@ -44,6 +44,8 @@ export default function DuelPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [toastShown, setToastShown] = useState(false);
+  const [showVSAnimation, setShowVSAnimation] = useState(false);
+  const [hasShownVSAnimation, setHasShownVSAnimation] = useState(false);
 
   useEffect(() => {
     if (!duelId) return;
@@ -68,6 +70,21 @@ export default function DuelPage() {
   const loadDuel = async () => {
     try {
       const duelData: any = await getDuelStatus(duelId);
+      
+      // Detect when duel goes from waiting to active with both players
+      const wasWaiting = duel?.status === 'waiting';
+      const isNowActive = duelData.status === 'active';
+      const hasBothPlayers = duelData.player1 && duelData.player2;
+      
+      // Show VS animation when duel becomes active with both players
+      if (wasWaiting && isNowActive && hasBothPlayers && !hasShownVSAnimation) {
+        setShowVSAnimation(true);
+        setHasShownVSAnimation(true);
+        // Auto-hide after 3.5 seconds
+        setTimeout(() => {
+          setShowVSAnimation(false);
+        }, 3500);
+      }
       
       // Only update if status changed or if we don't have course questions yet
       if (!duel || duel.status !== duelData.status || (duelData.status === 'active' && !duel.course?.questions)) {
@@ -98,6 +115,8 @@ export default function DuelPage() {
             player2Score: duelData.player2Score !== undefined ? duelData.player2Score : prev.player2Score,
             status: duelData.status || prev.status,
             waitingForOpponent: duelData.waitingForOpponent !== undefined ? duelData.waitingForOpponent : prev.waitingForOpponent,
+            player1: duelData.player1 || prev.player1,
+            player2: duelData.player2 || prev.player2,
           }));
         }
       }
@@ -301,8 +320,130 @@ export default function DuelPage() {
     }
   }
 
+  // VS Animation - show before questions start
+  if (showVSAnimation && duel.player1 && duel.player2) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-900 via-purple-900 to-red-900 opacity-90"></div>
+        
+        {/* Neon borders */}
+        <div className="absolute left-0 top-0 bottom-0 w-1/2">
+          <div className="absolute inset-0 border-l-4 border-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.8),0_0_40px_rgba(96,165,250,0.6)]"></div>
+          <div className="absolute top-0 left-0 w-32 h-32 border-t-4 border-l-4 border-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.8)]"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 border-b-4 border-l-4 border-blue-400 shadow-[0_0_20px_rgba(96,165,250,0.8)]"></div>
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-1/2">
+          <div className="absolute inset-0 border-r-4 border-red-400 shadow-[0_0_20px_rgba(248,113,113,0.8),0_0_40px_rgba(248,113,113,0.6)]"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 border-t-4 border-r-4 border-red-400 shadow-[0_0_20px_rgba(248,113,113,0.8)]"></div>
+          <div className="absolute bottom-0 right-0 w-32 h-32 border-b-4 border-r-4 border-red-400 shadow-[0_0_20px_rgba(248,113,113,0.8)]"></div>
+        </div>
+        
+        {/* Particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                width: `${Math.random() * 8 + 2}px`,
+                height: `${Math.random() * 8 + 2}px`,
+                backgroundColor: Math.random() > 0.5 ? '#fbbf24' : '#f97316',
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${Math.random() * 2 + 1}s`,
+              }}
+            />
+          ))}
+        </div>
+        
+        {/* Content */}
+        <div className="relative z-10 w-full max-w-6xl px-8 flex items-center justify-between animate-fadeInScale">
+          {/* Player 1 */}
+          <div className="flex-1 flex flex-col items-center text-center">
+            {duel.player1.activeSkin?.icon ? (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_30px_rgba(96,165,250,0.8)] flex items-center justify-center overflow-hidden mb-4 border-4 border-blue-400">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={duel.player1.activeSkin.icon} 
+                  alt={duel.player1.activeSkin.name || duel.player1.prenom}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_30px_rgba(96,165,250,0.8)] flex items-center justify-center mb-4 border-4 border-blue-400">
+                <span className="text-5xl sm:text-6xl font-black text-white">{duel.player1.prenom.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-2 drop-shadow-[0_0_10px_rgba(96,165,250,0.8)]">
+              {duel.player1.prenom}
+            </h2>
+            <p className="text-xl sm:text-2xl font-bold text-yellow-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]">
+              🍌 {duel.player1.xp || 0} bananes
+            </p>
+          </div>
+          
+          {/* VS Logo */}
+          <div className="relative mx-8 sm:mx-16">
+            <div className="relative">
+              <h1 className="text-6xl sm:text-8xl md:text-9xl font-black text-white drop-shadow-[0_0_20px_rgba(251,191,36,1),0_0_40px_rgba(251,191,36,0.8)] animate-pulse">
+                VS
+              </h1>
+              {/* Glow effect */}
+              <div className="absolute inset-0 text-6xl sm:text-8xl md:text-9xl font-black text-yellow-400 blur-xl opacity-75 animate-pulse">
+                VS
+              </div>
+            </div>
+          </div>
+          
+          {/* Player 2 */}
+          <div className="flex-1 flex flex-col items-center text-center">
+            {duel.player2.activeSkin?.icon ? (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_30px_rgba(248,113,113,0.8)] flex items-center justify-center overflow-hidden mb-4 border-4 border-red-400">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={duel.player2.activeSkin.icon} 
+                  alt={duel.player2.activeSkin.name || duel.player2.prenom}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_30px_rgba(248,113,113,0.8)] flex items-center justify-center mb-4 border-4 border-red-400">
+                <span className="text-5xl sm:text-6xl font-black text-white">{duel.player2.prenom.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-2 drop-shadow-[0_0_10px_rgba(248,113,113,0.8)]">
+              {duel.player2.prenom}
+            </h2>
+            <p className="text-xl sm:text-2xl font-bold text-yellow-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]">
+              🍌 {duel.player2.xp || 0} bananes
+            </p>
+          </div>
+        </div>
+        
+        {/* CSS Animations */}
+        <style jsx>{`
+          @keyframes fadeInScale {
+            from {
+              opacity: 0;
+              transform: scale(0.8);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          .animate-fadeInScale {
+            animation: fadeInScale 0.8s ease-out;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   // Active state - show questions
-  if (duel.status === 'active' && duel.course?.questions) {
+  if (duel.status === 'active' && duel.course?.questions && !showVSAnimation) {
     const currentQuestion = duel.course.questions[currentQuestionIndex];
     const totalQuestions = duel.course.questions.length;
     
