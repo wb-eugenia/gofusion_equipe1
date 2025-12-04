@@ -3715,17 +3715,30 @@ app.get('/api/student/duels/:id/status', async (c) => {
     const player1Finished = questions.every(q => player1Answers.some(a => a.questionId === q.id));
     const player2Finished = duel.duel.player2Id ? questions.every(q => player2Answers.some(a => a.questionId === q.id)) : false;
     
+    // Calculate total response time for each player (only for correct answers) - used for tie breaking
+    const player1TotalTimeForTie = player1Answers
+      .filter(a => a.isCorrect && a.responseTimeMs)
+      .reduce((sum, a) => sum + (a.responseTimeMs || 0), 0);
+    const player2TotalTimeForTie = player2Answers
+      .filter(a => a.isCorrect && a.responseTimeMs)
+      .reduce((sum, a) => sum + (a.responseTimeMs || 0), 0);
+    
     // Only finish the duel when BOTH players have answered all questions
     if (player1Finished && player2Finished) {
-      // Determine winner - player with most points wins (no draw, highest score wins)
+      // Determine winner - player with most points wins, or fastest time if tie
       let winnerId = null;
       if (player1Score > player2Score) {
         winnerId = duel.duel.player1Id;
       } else if (player2Score > player1Score) {
         winnerId = duel.duel.player2Id;
       } else {
-        // In case of exact tie, player1 wins (or we could make it a draw, but user wants winner)
-        winnerId = duel.duel.player1Id;
+        // In case of exact tie, player with fastest total time wins
+        if (player1TotalTimeForTie > 0 && player2TotalTimeForTie > 0) {
+          winnerId = player1TotalTimeForTie < player2TotalTimeForTie ? duel.duel.player1Id : duel.duel.player2Id;
+        } else {
+          // Fallback if no time data, player1 wins
+          winnerId = duel.duel.player1Id;
+        }
       }
       
       // Update duel
@@ -3814,6 +3827,14 @@ app.get('/api/student/duels/:id/status', async (c) => {
     activeSkin: activeSkinMap.get(player2.id) || null,
   } : null;
   
+  // Calculate total response time for each player (only for correct answers) - for display
+  const player1TotalTime = player1Answers
+    .filter(a => a.isCorrect && a.responseTimeMs)
+    .reduce((sum, a) => sum + (a.responseTimeMs || 0), 0);
+  const player2TotalTime = player2Answers
+    .filter(a => a.isCorrect && a.responseTimeMs)
+    .reduce((sum, a) => sum + (a.responseTimeMs || 0), 0);
+  
   return c.json({
     ...duel.duel,
     player1: player1WithSkin,
@@ -3822,6 +3843,8 @@ app.get('/api/student/duels/:id/status', async (c) => {
     matiere: matiere,
     player1Score,
     player2Score,
+    player1TotalTime,
+    player2TotalTime,
     waitingForOpponent,
   });
 });

@@ -71,19 +71,31 @@ export default function DuelPage() {
     try {
       const duelData: any = await getDuelStatus(duelId);
       
-      // Detect when duel goes from waiting to active with both players
-      const wasWaiting = duel?.status === 'waiting';
+      // Check if VS animation has already been shown for this duel (using localStorage)
+      const vsAnimationKey = `vs_animation_shown_${duelId}`;
+      const hasShownVSForThisDuel = localStorage.getItem(vsAnimationKey) === 'true';
+      
+      // Detect when duel is active with both players (for VS animation)
       const isNowActive = duelData.status === 'active';
       const hasBothPlayers = duelData.player1 && duelData.player2;
+      const hasQuestions = duelData.course?.questions && duelData.course.questions.length > 0;
       
-      // Show VS animation when duel becomes active with both players
-      if (wasWaiting && isNowActive && hasBothPlayers && !hasShownVSAnimation) {
-        setShowVSAnimation(true);
-        setHasShownVSAnimation(true);
-        // Auto-hide after 3.5 seconds
-        setTimeout(() => {
-          setShowVSAnimation(false);
-        }, 3500);
+      // Show VS animation only once per duel if duel is active with both players and no answers yet
+      if (!hasShownVSForThisDuel && isNowActive && hasBothPlayers && hasQuestions && !hasShownVSAnimation) {
+        // Check if no answers have been submitted yet (duel just started)
+        const hasNoAnswers = (!duelData.player1Score || duelData.player1Score === 0) && 
+                             (!duelData.player2Score || duelData.player2Score === 0);
+        
+        if (hasNoAnswers) {
+          // Mark as shown in localStorage and state
+          localStorage.setItem(vsAnimationKey, 'true');
+          setHasShownVSAnimation(true);
+          setShowVSAnimation(true);
+          // Auto-hide after 3.5 seconds
+          setTimeout(() => {
+            setShowVSAnimation(false);
+          }, 3500);
+        }
       }
       
       // Only update if status changed or if we don't have course questions yet
@@ -99,6 +111,21 @@ export default function DuelPage() {
             if (courseResponse.ok) {
               const courseData: any = await courseResponse.json();
               duelData.course = courseData;
+              
+              // Check again for VS animation after loading questions (only if not already shown)
+              if (!hasShownVSForThisDuel && duelData.status === 'active' && duelData.player1 && duelData.player2 && 
+                  courseData.questions && courseData.questions.length > 0 && !hasShownVSAnimation) {
+                const hasNoAnswers = (!duelData.player1Score || duelData.player1Score === 0) && 
+                                     (!duelData.player2Score || duelData.player2Score === 0);
+                if (hasNoAnswers) {
+                  localStorage.setItem(vsAnimationKey, 'true');
+                  setHasShownVSAnimation(true);
+                  setShowVSAnimation(true);
+                  setTimeout(() => {
+                    setShowVSAnimation(false);
+                  }, 3500);
+                }
+              }
             }
           } catch (e) {
             console.error('Error loading course:', e);
@@ -264,12 +291,39 @@ export default function DuelPage() {
                   <div>
                     <p className="text-gray-600">Joueur 1: {duel.player1?.prenom}</p>
                     <p className="text-2xl font-bold text-blue-600">{duel.player1Score || 0} points</p>
+                    {duel.player1TotalTime !== undefined && duel.player1TotalTime > 0 && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ⏱️ {(duel.player1TotalTime / 1000).toFixed(1)}s
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-gray-600">Joueur 2: {duel.player2?.prenom}</p>
                     <p className="text-2xl font-bold text-purple-600">{duel.player2Score || 0} points</p>
+                    {duel.player2TotalTime !== undefined && duel.player2TotalTime > 0 && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        ⏱️ {(duel.player2TotalTime / 1000).toFixed(1)}s
+                      </p>
+                    )}
                   </div>
                 </div>
+                {(duel.player1Score === duel.player2Score) && (
+                  <div className="mt-4 pt-4 border-t border-gray-300 text-center">
+                    <p className="text-sm text-gray-600 mb-2">Égalité ! Le gagnant est déterminé par le temps de réponse</p>
+                    {duel.player1TotalTime !== undefined && duel.player2TotalTime !== undefined && 
+                     duel.player1TotalTime > 0 && duel.player2TotalTime > 0 && (
+                      <div className="flex justify-center gap-4 text-sm">
+                        <span className={duel.player1TotalTime < duel.player2TotalTime ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {duel.player1?.prenom}: {(duel.player1TotalTime / 1000).toFixed(1)}s
+                        </span>
+                        <span className="text-gray-400">vs</span>
+                        <span className={duel.player2TotalTime < duel.player1TotalTime ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {duel.player2?.prenom}: {(duel.player2TotalTime / 1000).toFixed(1)}s
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {duel.betAmount > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-300 text-center">
                     <p className="text-sm text-gray-600 mb-1">Mise du duel</p>
@@ -320,10 +374,9 @@ export default function DuelPage() {
     }
   }
 
-  // VS Animation - show before questions start
-  if (showVSAnimation && duel.player1 && duel.player2) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+  // VS Animation overlay - show before questions start (doesn't block rendering)
+  const vsAnimationOverlay = showVSAnimation && duel.player1 && duel.player2 ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black" style={{ pointerEvents: 'auto' }}>
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900 via-purple-900 to-red-900 opacity-90"></div>
         
@@ -439,11 +492,10 @@ export default function DuelPage() {
           }
         `}</style>
       </div>
-    );
-  }
+    ) : null;
 
   // Active state - show questions
-  if (duel.status === 'active' && duel.course?.questions && !showVSAnimation) {
+  if (duel.status === 'active' && duel.course?.questions) {
     const currentQuestion = duel.course.questions[currentQuestionIndex];
     const totalQuestions = duel.course.questions.length;
     
@@ -471,7 +523,8 @@ export default function DuelPage() {
     return (
       <>
         <ToastComponent />
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+        {vsAnimationOverlay}
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4" style={{ pointerEvents: showVSAnimation ? 'none' : 'auto' }}>
         <div className="max-w-3xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
             {/* Header */}
