@@ -65,6 +65,7 @@ export default function AdminShopPage() {
   const { showError, showSuccess, showConfirm, PopupComponent } = usePopup();
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -73,6 +74,21 @@ export default function AdminShopPage() {
     data: '',
     icon: '',
   });
+
+  // Icônes disponibles dans le dossier singes boutique
+  const monkeyIcons = [
+    '/singes/singes boutique/agriculteur.png',
+    '/singes/singes boutique/astronote.png',
+    '/singes/singes boutique/boulanger.png',
+    '/singes/singes boutique/chevalier.png',
+    '/singes/singes boutique/detective.png',
+    '/singes/singes boutique/footballer.png',
+    '/singes/singes boutique/Generated_Image_December_04__2025_-_1_02AM-removebg-preview.png',
+    '/singes/singes boutique/peintre.png',
+    '/singes/singes boutique/pompier.png',
+    '/singes/singes boutique/scientifique.png',
+    '/singes/singes boutique/superhero.png',
+  ];
 
   useEffect(() => {
     loadItems();
@@ -184,6 +200,7 @@ export default function AdminShopPage() {
                 data: '',
                 icon: '',
               });
+              setShowIconPicker(false);
               setShowModal(true);
             }}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -210,7 +227,14 @@ export default function AdminShopPage() {
                     <span className="text-yellow-600 font-semibold">🍌 {item.price} bananes</span>
                   </div>
                   {item.icon && (
-                    <p className="text-xs text-gray-500">Icône: {item.icon}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.icon}
+                        alt={item.name}
+                        className="w-10 h-10 rounded object-contain border border-gray-200"
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -292,13 +316,45 @@ export default function AdminShopPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Icône (optionnel)</label>
-                  <input
-                    type="text"
-                    value={formData.icon}
-                    onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                    placeholder="Ex: 🎨, /icons/skin1.png"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.icon}
+                      onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                      placeholder="Ex: 🎨, /icons/skin1.png"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowIconPicker((v) => !v)}
+                      className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+                    >
+                      {showIconPicker ? 'Masquer les icônes' : 'Choisir une icône de singe'}
+                    </button>
+                    {showIconPicker && (
+                      <div className="grid grid-cols-3 gap-3 mt-2">
+                        {monkeyIcons.map((iconPath) => (
+                          <button
+                            key={iconPath}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, icon: iconPath });
+                            }}
+                            className={`border-2 rounded-lg p-1 flex items-center justify-center bg-white hover:border-purple-400 transition ${
+                              formData.icon === iconPath ? 'border-purple-500' : 'border-transparent'
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={iconPath}
+                              alt="Icône singe"
+                              className="w-14 h-14 object-contain"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Données JSON (optionnel)</label>
