@@ -69,9 +69,8 @@ export default function AdminShopPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'skin' as 'skin' | 'powerup' | 'cosmetic',
+    type: 'skin' as 'skin',
     price: 10,
-    data: '',
     icon: '',
   });
 
@@ -111,13 +110,10 @@ export default function AdminShopPage() {
       const submitData: any = {
         name: formData.name,
         description: formData.description,
-        type: formData.type,
+        type: 'skin',
         price: formData.price,
       };
       
-      if (formData.data) {
-        submitData.data = formData.data;
-      }
       if (formData.icon) {
         submitData.icon = formData.icon;
       }
@@ -137,7 +133,6 @@ export default function AdminShopPage() {
         description: '',
         type: 'skin',
         price: 10,
-        data: '',
         icon: '',
       });
     } catch (error: any) {
@@ -150,9 +145,8 @@ export default function AdminShopPage() {
     setFormData({
       name: item.name,
       description: item.description,
-      type: item.type,
+      type: 'skin',
       price: item.price,
-      data: item.data || '',
       icon: item.icon || '',
     });
     setShowModal(true);
@@ -197,7 +191,6 @@ export default function AdminShopPage() {
                 description: '',
                 type: 'skin',
                 price: 10,
-                data: '',
                 icon: '',
               });
               setShowIconPicker(false);
@@ -217,12 +210,8 @@ export default function AdminShopPage() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{item.name}</h3>
                   <p className="text-gray-600 text-sm mb-2">{item.description}</p>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      item.type === 'skin' ? 'bg-blue-100 text-blue-700' :
-                      item.type === 'powerup' ? 'bg-green-100 text-green-700' :
-                      'bg-purple-100 text-purple-700'
-                    }`}>
-                      {item.type === 'skin' ? 'Skin' : item.type === 'powerup' ? 'Power-up' : 'Cosmétique'}
+                    <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-700">
+                      Skin
                     </span>
                     <span className="text-yellow-600 font-semibold">🍌 {item.price} bananes</span>
                   </div>
@@ -291,19 +280,6 @@ export default function AdminShopPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'skin' | 'powerup' | 'cosmetic' })}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900"
-                  >
-                    <option value="skin">Skin</option>
-                    <option value="powerup">Power-up</option>
-                    <option value="cosmetic">Cosmétique</option>
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Prix (bananes)</label>
                   <input
                     type="number"
@@ -355,16 +331,6 @@ export default function AdminShopPage() {
                       </div>
                     )}
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Données JSON (optionnel)</label>
-                  <textarea
-                    value={formData.data}
-                    onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                    rows={2}
-                    placeholder='{"color": "#FF0000", "effect": "glow"}'
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono text-sm"
-                  />
                 </div>
                 <div className="flex space-x-3">
                   <button

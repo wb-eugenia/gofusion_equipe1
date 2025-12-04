@@ -216,60 +216,61 @@ export default function DuelPage() {
       <>
         <ToastComponent />
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Duel terminé</h1>
-            
-            {isWinner ? (
-              <div className="mb-6">
-                <p className="text-2xl text-green-600 mb-2">Vous avez gagné !</p>
-                {duel.betAmount > 0 && (
-                  <p className="text-lg text-yellow-600 font-semibold">
-                    🍌 Vous avez gagné {duel.betAmount * 2} bananes !
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="mb-6">
-                <p className="text-2xl text-red-600 mb-2">Vous avez perdu</p>
-                {duel.betAmount > 0 && (
-                  <p className="text-sm text-gray-600">
-                    Vous avez perdu {duel.betAmount} bananes
-                  </p>
-                )}
-              </div>
-            )}
-            
-            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <p className="text-gray-600">Joueur 1: {duel.player1?.prenom}</p>
-                  <p className="text-2xl font-bold text-blue-600">{duel.player1Score || 0} points</p>
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">Duel terminé</h1>
+              
+              {isWinner ? (
+                <div className="mb-6">
+                  <p className="text-2xl text-green-600 mb-2">Vous avez gagné !</p>
+                  {duel.betAmount > 0 && (
+                    <p className="text-lg text-yellow-600 font-semibold">
+                      🍌 Vous avez gagné {duel.betAmount * 2} bananes !
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <p className="text-gray-600">Joueur 2: {duel.player2?.prenom}</p>
-                  <p className="text-2xl font-bold text-purple-600">{duel.player2Score || 0} points</p>
-                </div>
-              </div>
-              {duel.betAmount > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-300 text-center">
-                  <p className="text-sm text-gray-600 mb-1">Mise du duel</p>
-                  <p className="text-lg font-semibold text-yellow-600">
-                    🍌 {duel.betAmount} bananes par joueur (Pot: {duel.betAmount * 2} 🍌)
-                  </p>
+              ) : (
+                <div className="mb-6">
+                  <p className="text-2xl text-red-600 mb-2">Vous avez perdu</p>
+                  {duel.betAmount > 0 && (
+                    <p className="text-sm text-gray-600">
+                      Vous avez perdu {duel.betAmount} bananes
+                    </p>
+                  )}
                 </div>
               )}
+              
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <p className="text-gray-600">Joueur 1: {duel.player1?.prenom}</p>
+                    <p className="text-2xl font-bold text-blue-600">{duel.player1Score || 0} points</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Joueur 2: {duel.player2?.prenom}</p>
+                    <p className="text-2xl font-bold text-purple-600">{duel.player2Score || 0} points</p>
+                  </div>
+                </div>
+                {duel.betAmount > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-300 text-center">
+                    <p className="text-sm text-gray-600 mb-1">Mise du duel</p>
+                    <p className="text-lg font-semibold text-yellow-600">
+                      🍌 {duel.betAmount} bananes par joueur (Pot: {duel.betAmount * 2} 🍌)
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={() => router.push('/student/duel/lobby')}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+              >
+                Retour au lobby
+              </button>
             </div>
-            
-            <button
-              onClick={() => router.push('/student/duel/lobby')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
-            >
-              Retour au lobby
-            </button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 

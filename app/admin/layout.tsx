@@ -4,14 +4,57 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
+const ADMIN_PASSWORD = '2007';
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    // Check if admin is already authenticated
+    const adminAuth = localStorage.getItem('adminAuthenticated');
+    if (adminAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+    
+    // Check if user has a sessionId, if not, they need to register first
+    const sessionId = localStorage.getItem('sessionId');
+    if (!sessionId && adminAuth === 'true') {
+      // Admin authenticated but no session - show message
+      setError('Veuillez d\'abord vous inscrire sur la page d\'accueil pour accéder à l\'administration');
+    }
+    
+    setLoading(false);
+  }, []);
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      localStorage.setItem('adminAuthenticated', 'true');
+      setPassword('');
+    } else {
+      setError('Mot de passe incorrect');
+      setPassword('');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminAuthenticated');
+    setIsAuthenticated(false);
+    router.push('/');
+  };
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: '' },
@@ -24,9 +67,6 @@ export default function AdminLayout({
     { href: '/admin/badges', label: 'Badges', icon: '' },
   ];
 
-  const handleLogout = () => {
-    router.push('/');
-  };
 
   // Close sidebar when clicking outside on mobile
   useEffect(() => {
@@ -50,6 +90,64 @@ export default function AdminLayout({
       document.body.style.overflow = '';
     };
   }, [sidebarOpen]);
+
+  // Show password prompt if not authenticated
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-xl">Chargement...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="bg-surface rounded-lg shadow-card p-8 max-w-md w-full">
+          <h1 className="text-2xl font-bold text-primary mb-2 text-center">🔐 Accès Admin</h1>
+          <p className="text-textMuted text-center mb-6">Veuillez entrer le mot de passe pour accéder à l'administration</p>
+          
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-text mb-2">
+                Mot de passe
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-text bg-background"
+                placeholder="Entrez le mot de passe"
+                autoFocus
+              />
+              {error && (
+                <p className="mt-2 text-sm text-error">{error}</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:brightness-105 transition-all duration-150 font-semibold"
+            >
+              Se connecter
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+            <Link
+              href="/"
+              className="text-sm text-textMuted hover:text-text transition-colors"
+            >
+              Retour à l'accueil
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -120,8 +218,8 @@ export default function AdminLayout({
             }}
             className="w-full flex items-center px-4 py-2 text-sm text-error hover:bg-error/10 rounded-lg transition-all duration-200 min-h-[44px]"
           >
-            <span className="mr-3"></span>
-            Déconnexion
+            <span className="mr-3">🚪</span>
+            Déconnexion Admin
           </button>
         </div>
       </aside>

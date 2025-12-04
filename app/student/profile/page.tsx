@@ -90,21 +90,15 @@ export default function ProfilePage() {
   };
 
   const handleLeaveClan = async (clanId: string, clanName: string) => {
-    showConfirm(
-      `Êtes-vous sûr de vouloir quitter le clan "${clanName}" ?`,
-      async () => {
-        try {
-          await leaveClan(clanId);
-          showSuccess('Clan quitté');
-          await loadData();
-        } catch (error: any) {
-          showError(error.message || 'Erreur lors de la sortie du clan');
-        }
-      },
-      'Confirmer la sortie',
-      'Quitter',
-      'Annuler'
-    );
+    if (window.confirm(`Êtes-vous sûr de vouloir quitter le clan "${clanName}" ?`)) {
+      try {
+        await leaveClan(clanId);
+        showSuccess('Clan quitté');
+        await loadData();
+      } catch (error: any) {
+        showError(error.message || 'Erreur lors de la sortie du clan');
+      }
+    }
   };
 
   if (loading) {

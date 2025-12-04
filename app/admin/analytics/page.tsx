@@ -26,7 +26,14 @@ export default function AnalyticsPage() {
       setAnalytics(data);
     } catch (error: any) {
       console.error('Error loading analytics:', error);
-      alert(`Erreur: ${error.message}`);
+      // Set analytics to empty state instead of showing alert
+      setAnalytics({
+        totalSessions: 0,
+        completedSessions: 0,
+        avgTimeSeconds: 0,
+        avgTimeMinutes: 0,
+        userStats: [],
+      });
     } finally {
       setLoading(false);
     }

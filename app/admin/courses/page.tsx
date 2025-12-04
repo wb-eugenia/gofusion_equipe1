@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { 
-  getCourses, 
   createCourse, 
   updateCourse, 
   deleteCourse, 
-  getMatieres,
+  getAdminMatieres,
   getAdminCourseQuestions,
   createAdminQuestion,
   updateAdminQuestion,
   deleteAdminQuestion,
+  apiRequest,
 } from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
 import QuestionEditor from '@/components/QuestionEditor';
@@ -54,9 +54,10 @@ export default function AdminCoursesPage() {
 
   const loadData = async () => {
     try {
+      // Use admin endpoints that don't require user session
       const [coursesData, matieresData] = await Promise.all([
-        getCourses(),
-        getMatieres(),
+        apiRequest<any[]>('/api/admin/courses'),
+        getAdminMatieres(),
       ]);
       setCourses(coursesData);
       setMatieres(matieresData);
@@ -114,16 +115,23 @@ export default function AdminCoursesPage() {
         });
 
         // Met à jour / crée / supprime les questions une par une
+<<<<<<< HEAD
         // On se base sur les IDs chargés depuis l'API au moment où on a ouvert la modale
         const existingIds = new Set(initialQuestionIds);
+=======
+        const existingIds = new Set(
+          (editingCourse.questions || []).map((q: any) => q.id as string).filter((id: string): id is string => !!id)
+        );
+>>>>>>> d8264abb074fe16356708db307a10cde250e95f3
         const currentIds = new Set(
           questions.filter(q => q.id).map(q => q.id as string)
         );
 
         // Supprimer les anciennes questions qui ne sont plus présentes
         for (const oldId of existingIds) {
-          if (!currentIds.has(oldId)) {
-            await deleteAdminQuestion(oldId);
+          const oldIdStr = oldId as string;
+          if (!currentIds.has(oldIdStr)) {
+            await deleteAdminQuestion(oldIdStr);
           }
         }
 

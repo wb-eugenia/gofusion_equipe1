@@ -434,10 +434,17 @@ export default function CourseQuizPage() {
         return;
       }
 
+<<<<<<< HEAD
       if (memoryFlipped.length === 1) {
         const firstId = memoryFlipped[0];
         const firstCard = shuffledCards.find(c => c.id === firstId);
         const secondCard = shuffledCards.find(c => c.id === cardId);
+=======
+      if (currentFlipped.length === 1) {
+        const firstId = currentFlipped[0];
+        const firstCard = shuffledCards.find((c: any) => c.id === firstId);
+        const secondCard = shuffledCards.find((c: any) => c.id === cardId);
+>>>>>>> d8264abb074fe16356708db307a10cde250e95f3
         if (!firstCard || !secondCard) return;
 
         // On retourne la seconde carte
