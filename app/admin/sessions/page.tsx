@@ -1,32 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCourses, getMatieres } from '@/lib/api';
+import { getAdminMatieres, apiRequest } from '@/lib/api';
 
 async function getFixedSessions() {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/admin/sessions/fixed`, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('sessionId')}`,
-    },
-  });
-  if (!response.ok) throw new Error('Failed to load fixed sessions');
-  return response.json();
+  return apiRequest<any[]>('/api/admin/sessions/fixed');
 }
 
 async function createFixedSession(data: any) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/admin/sessions/fixed`, {
+  return apiRequest<any>('/api/admin/sessions/fixed', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('sessionId')}`,
-    },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error: any = await response.json();
-    throw new Error(error.error || 'Failed to create fixed session');
-  }
-  return response.json();
 }
 
 export default function SessionsPage() {
@@ -49,7 +34,7 @@ export default function SessionsPage() {
     try {
       const [sessionsData, coursesData] = await Promise.all([
         getFixedSessions(),
-        getCourses(),
+        apiRequest<any[]>('/api/admin/courses'),
       ]);
       setSessions(sessionsData as any[]);
       setCourses(coursesData as any[]);

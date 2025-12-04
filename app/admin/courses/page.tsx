@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { 
-  getCourses, 
   createCourse, 
   updateCourse, 
   deleteCourse, 
-  getMatieres,
+  getAdminMatieres,
   getAdminCourseQuestions,
   createAdminQuestion,
   updateAdminQuestion,
   deleteAdminQuestion,
+  apiRequest,
 } from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
 import QuestionEditor from '@/components/QuestionEditor';
@@ -52,9 +52,10 @@ export default function AdminCoursesPage() {
 
   const loadData = async () => {
     try {
+      // Use admin endpoints that don't require user session
       const [coursesData, matieresData] = await Promise.all([
-        getCourses(),
-        getMatieres(),
+        apiRequest<any[]>('/api/admin/courses'),
+        getAdminMatieres(),
       ]);
       setCourses(coursesData);
       setMatieres(matieresData);

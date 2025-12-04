@@ -69,6 +69,10 @@ export async function getMatieres() {
   return apiRequest<any[]>('/api/matieres');
 }
 
+export async function getAdminMatieres() {
+  return apiRequest<any[]>('/api/admin/matieres');
+}
+
 export async function getCourses() {
   return apiRequest<any[]>('/api/courses');
 }

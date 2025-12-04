@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getMatieres } from '@/lib/api';
+import { getAdminMatieres } from '@/lib/api';
 import { usePopup } from '@/hooks/usePopup';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
@@ -116,7 +116,7 @@ export default function ClanWarsAdminPage() {
       } else if (activeTab === 'wars') {
         const [warsData, matieresData] = await Promise.all([
           getClanWars(),
-          getMatieres(),
+          getAdminMatieres(),
         ]);
         setWars(warsData as any[]);
         setMatieres(matieresData as any[]);

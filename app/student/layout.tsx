@@ -184,6 +184,22 @@ export default function StudentLayout({
             </Link>
           ))}
         </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-border">
+          <button
+            onClick={() => {
+              localStorage.removeItem('sessionId');
+              localStorage.removeItem('currentSessionId');
+              localStorage.removeItem('sessionStartTime');
+              router.push('/');
+            }}
+            className="w-full flex items-center px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px] text-text hover:bg-red-50 hover:text-red-600"
+          >
+            <span className="mr-3 text-xl">🚪</span>
+            <span className="text-sm font-medium">Déconnexion</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}

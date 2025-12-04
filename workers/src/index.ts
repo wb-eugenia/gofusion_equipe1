@@ -1013,6 +1013,122 @@ app.post('/api/admin/sessions/:id/stop', async (c) => {
   return c.json({ success: true });
 });
 
+// Admin endpoint for matieres (doesn't require user auth, only admin password)
+app.get('/api/admin/matieres', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all matieres
+  const matieres = await db.select().from(schema.matieres).all();
+  
+  return c.json(matieres);
+});
+
+// Admin endpoint for fixed sessions
+app.get('/api/admin/sessions/fixed', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get fixed sessions (isFixed = true)
+  const fixedSessions = await db
+    .select({
+      session: schema.sessions,
+      course: schema.courses,
+    })
+    .from(schema.sessions)
+    .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+    .where(eq(schema.sessions.isFixed, true))
+    .orderBy(desc(schema.sessions.createdAt))
+    .all();
+  
+  return c.json(fixedSessions.map(s => ({
+    ...s.session,
+    course: s.course,
+  })));
+});
+
+app.post('/api/admin/sessions/fixed', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { courseId, scheduledAt, recurrenceType, recurrenceDay } = body;
+    
+    if (!courseId) {
+      return c.json({ error: 'Course ID is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if course exists
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    
+    // Generate unique code (6 characters)
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // Create fixed session
+    const sessionId = crypto.randomUUID();
+    const sessionData: any = {
+      id: sessionId,
+      courseId,
+      createdBy: admin.id,
+      code,
+      isActive: false,
+      status: 'waiting',
+      isFixed: true,
+      createdAt: new Date(),
+    };
+    
+    if (scheduledAt) {
+      sessionData.scheduledAt = new Date(scheduledAt);
+    }
+    
+    if (recurrenceType) {
+      sessionData.recurrenceType = recurrenceType;
+      if (recurrenceType === 'weekly' && recurrenceDay !== undefined) {
+        sessionData.recurrenceDay = recurrenceDay;
+      }
+    }
+    
+    await db.insert(schema.sessions).values(sessionData);
+    
+    const session = await db
+      .select({
+        session: schema.sessions,
+        course: schema.courses,
+      })
+      .from(schema.sessions)
+      .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+      .where(eq(schema.sessions.id, sessionId))
+      .get();
+    
+    if (!session) {
+      return c.json({ error: 'Failed to create session' }, 500);
+    }
+    
+    return c.json({
+      ...session.session,
+      course: session.course,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 app.get('/api/admin/sessions/:id/attendances', async (c) => {
   const admin = await requireAdmin(c);
   if (!admin) {
@@ -1159,6 +1275,85 @@ app.post('/api/student/session/track', async (c) => {
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
+});
+
+// ========== ANALYTICS ROUTES ==========
+
+app.get('/api/admin/analytics/time-spent', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get all user sessions
+  const allSessions = await db
+    .select({
+      session: schema.userSessions,
+      user: schema.users,
+    })
+    .from(schema.userSessions)
+    .innerJoin(schema.users, eq(schema.userSessions.userId, schema.users.id))
+    .all();
+  
+  // Calculate overall stats
+  const totalSessions = allSessions.length;
+  const completedSessions = allSessions.filter(s => s.session.durationSeconds !== null && s.session.durationSeconds > 0).length;
+  
+  const sessionsWithDuration = allSessions
+    .filter(s => s.session.durationSeconds !== null && s.session.durationSeconds > 0)
+    .map(s => s.session.durationSeconds || 0);
+  
+  const totalTimeSeconds = sessionsWithDuration.reduce((sum, duration) => sum + duration, 0);
+  const avgTimeSeconds = sessionsWithDuration.length > 0 ? Math.round(totalTimeSeconds / sessionsWithDuration.length) : 0;
+  const avgTimeMinutes = Math.floor(avgTimeSeconds / 60);
+  
+  // Calculate stats per user
+  const userStatsMap = new Map<string, {
+    userId: string;
+    userName: string;
+    totalSessions: number;
+    completedSessions: number;
+    totalTimeSeconds: number;
+    avgTimeSeconds: number;
+    avgTimeMinutes: number;
+  }>();
+  
+  allSessions.forEach(({ session, user }) => {
+    const existing = userStatsMap.get(session.userId) || {
+      userId: session.userId,
+      userName: user.prenom,
+      totalSessions: 0,
+      completedSessions: 0,
+      totalTimeSeconds: 0,
+      avgTimeSeconds: 0,
+      avgTimeMinutes: 0,
+    };
+    
+    existing.totalSessions++;
+    if (session.durationSeconds !== null && session.durationSeconds > 0) {
+      existing.completedSessions++;
+      existing.totalTimeSeconds += session.durationSeconds;
+    }
+    
+    userStatsMap.set(session.userId, existing);
+  });
+  
+  // Calculate averages for each user
+  const userStats = Array.from(userStatsMap.values()).map(stat => ({
+    ...stat,
+    avgTimeSeconds: stat.completedSessions > 0 ? Math.round(stat.totalTimeSeconds / stat.completedSessions) : 0,
+    avgTimeMinutes: stat.completedSessions > 0 ? Math.floor(stat.totalTimeSeconds / stat.completedSessions / 60) : 0,
+  })).sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
+  
+  return c.json({
+    totalSessions,
+    completedSessions,
+    avgTimeSeconds,
+    avgTimeMinutes,
+    userStats,
+  });
 });
 
 // ========== SHOP ROUTES ==========
@@ -2211,20 +2406,29 @@ app.get('/api/student/clans/my', async (c) => {
     .where(eq(schema.clanMembers.userId, user.id))
     .all();
   
-  // Group by matiere
+  // Group by matiere and add member count
   const clansByMatiere: Record<string, any[]> = {};
-  userClans.forEach(uc => {
+  for (const uc of userClans) {
     const matiereId = uc.clan.matiereId;
     if (!clansByMatiere[matiereId]) {
       clansByMatiere[matiereId] = [];
     }
+    
+    // Get member count for this clan
+    const memberCount = await db
+      .select()
+      .from(schema.clanMembers)
+      .where(eq(schema.clanMembers.clanId, uc.clan.id))
+      .all();
+    
     clansByMatiere[matiereId].push({
       ...uc.clan,
       matiere: uc.matiere,
       role: uc.membership.role,
       joinedAt: uc.membership.joinedAt,
+      memberCount: memberCount.length,
     });
-  });
+  }
   
   return c.json({ clansByMatiere });
 });
