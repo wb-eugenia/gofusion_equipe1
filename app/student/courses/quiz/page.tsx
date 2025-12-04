@@ -427,8 +427,8 @@ export default function CourseQuizPage() {
 
       if (currentFlipped.length === 1) {
         const firstId = currentFlipped[0];
-        const firstCard = shuffledCards.find(c => c.id === firstId);
-        const secondCard = shuffledCards.find(c => c.id === cardId);
+        const firstCard = shuffledCards.find((c: any) => c.id === firstId);
+        const secondCard = shuffledCards.find((c: any) => c.id === cardId);
         if (!firstCard || !secondCard) return;
 
         // Si même questionId => paire trouvée

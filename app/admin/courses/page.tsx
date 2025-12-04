@@ -112,7 +112,7 @@ export default function AdminCoursesPage() {
 
         // Met à jour / crée / supprime les questions une par une
         const existingIds = new Set(
-          (editingCourse.questions || []).map((q: any) => q.id)
+          (editingCourse.questions || []).map((q: any) => q.id as string).filter((id: string): id is string => !!id)
         );
         const currentIds = new Set(
           questions.filter(q => q.id).map(q => q.id as string)
@@ -120,8 +120,9 @@ export default function AdminCoursesPage() {
 
         // Supprimer les anciennes questions qui ne sont plus présentes
         for (const oldId of existingIds) {
-          if (!currentIds.has(oldId)) {
-            await deleteAdminQuestion(oldId);
+          const oldIdStr = oldId as string;
+          if (!currentIds.has(oldIdStr)) {
+            await deleteAdminQuestion(oldIdStr);
           }
         }
 
