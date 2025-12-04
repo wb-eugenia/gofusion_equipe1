@@ -249,8 +249,39 @@ export default function ClansPage() {
                     <h3 className="font-semibold text-gray-900 mb-2">
                       {matiere?.nom || 'Matière inconnue'}
                     </h3>
-                    {clans.map((clan: any) => (
-                      <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl bg-white shadow-card">
+                    {clans.map((clan: any) => {
+                      const matiereName = clan.matiere?.nom?.toLowerCase() || '';
+                      const isFrancais = matiereName.includes('français') || matiereName.includes('francais');
+                      const isMaths = matiereName.includes('math') || matiereName.includes('mathématiques') || matiereName.includes('mathematiques');
+                      const isSciences = matiereName.includes('science');
+                      const isHistoire = matiereName.includes('histoire');
+                      const isGeographie = matiereName.includes('géographie') || matiereName.includes('geographie');
+                      
+                      let emblemSrc = null;
+                      let emblemSize = 'w-24 h-24'; // default size
+                      if (isFrancais) emblemSrc = '/badges/clan-francais.png';
+                      else if (isMaths) {
+                        emblemSrc = '/badges/clan-maths.png';
+                        emblemSize = 'w-20 h-20'; // smaller
+                      }
+                      else if (isSciences) {
+                        emblemSrc = '/badges/clan-sciences.png';
+                        emblemSize = 'w-28 h-28'; // larger
+                      }
+                      else if (isHistoire) emblemSrc = '/badges/clan-histoire.png';
+                      else if (isGeographie) emblemSrc = '/badges/clan-geographie.png';
+                      
+                      return (
+                      <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl bg-white shadow-card relative">
+                        {emblemSrc && (
+                          <div className={`absolute -top-3 -right-3 ${emblemSize}`}>
+                            <img 
+                              src={emblemSrc} 
+                              alt="Emblème" 
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
@@ -295,7 +326,8 @@ export default function ClansPage() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -320,8 +352,38 @@ export default function ClansPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {clans.map((clan: any) => {
                 const alreadyMember = isInClan(clan.id);
+                const matiereName = clan.matiere?.nom?.toLowerCase() || '';
+                const isFrancais = matiereName.includes('français') || matiereName.includes('francais');
+                const isMaths = matiereName.includes('math') || matiereName.includes('mathématiques') || matiereName.includes('mathematiques');
+                const isSciences = matiereName.includes('science');
+                const isHistoire = matiereName.includes('histoire');
+                const isGeographie = matiereName.includes('géographie') || matiereName.includes('geographie');
+                
+                let emblemSrc = null;
+                let emblemSize = 'w-24 h-24'; // default size
+                if (isFrancais) emblemSrc = '/badges/clan-francais.png';
+                else if (isMaths) {
+                  emblemSrc = '/badges/clan-maths.png';
+                  emblemSize = 'w-20 h-20'; // smaller
+                }
+                else if (isSciences) {
+                  emblemSrc = '/badges/clan-sciences.png';
+                  emblemSize = 'w-28 h-28'; // larger
+                }
+                else if (isHistoire) emblemSrc = '/badges/clan-histoire.png';
+                else if (isGeographie) emblemSrc = '/badges/clan-geographie.png';
+                
                 return (
-                  <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl hover:shadow-md transition bg-white">
+                  <div key={clan.id} className="p-4 border border-gray-200 rounded-2xl hover:shadow-md transition bg-white relative">
+                    {emblemSrc && (
+                      <div className={`absolute -top-3 -right-3 ${emblemSize}`}>
+                        <img 
+                          src={emblemSrc} 
+                          alt="Emblème" 
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
                     <div className="mb-3">
                       <h3 className="font-semibold text-gray-900 mb-1">{clan.name}</h3>
                       <p className="text-sm text-gray-600 mb-2">{clan.description || 'Pas de description'}</p>
