@@ -10,8 +10,8 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: 'Gamification App - Apprenez en vous amusant',
-  description: 'Transformez votre apprentissage en jeu avec notre plateforme de gamification. Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !',
+  title: 'MOCHI - Apprenez en vous amusant',
+  description: 'Transformez votre apprentissage en jeu avec notre plateforme MOCHI. Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !',
 };
 
 export default function RootLayout({

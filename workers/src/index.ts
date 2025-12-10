@@ -22,7 +22,7 @@ app.use('/*', cors({
 // Health check route
 app.get('/', (c) => {
   return c.json({ 
-    message: 'Gamification API is running',
+    message: 'MOCHI API is running',
     version: '1.0.0',
     endpoints: [
       'POST /api/auth/register',
