@@ -253,12 +253,16 @@ export default function DuelPage() {
       if (isWinner) {
         const reward = duel.betAmount > 0 ? duel.betAmount * 2 : 20;
         showSuccess(`🎉 Victoire ! +${reward} 🍌 bananes gagnées !`);
-        // Refresh user data in layout (bananas)
-        window.dispatchEvent(new Event('refreshUserData'));
+        // Refresh user data in layout (bananas) - add small delay to ensure backend update is complete
+        setTimeout(() => {
+          window.dispatchEvent(new Event('refreshUserData'));
+        }, 300);
       } else {
         showError('😔 Défaite... Réessaye pour ta revanche !');
-        // Refresh user data even on loss (bananas were bet)
-        window.dispatchEvent(new Event('refreshUserData'));
+        // Refresh user data even on loss (bananas were bet) - add small delay to ensure backend update is complete
+        setTimeout(() => {
+          window.dispatchEvent(new Event('refreshUserData'));
+        }, 300);
       }
     }
     

@@ -116,20 +116,65 @@ export default function StudentLayout({
 
   // Listen for user data refresh events (when bananas are gained/spent)
   useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout | null = null;
+    let isRefreshing = false;
+    
     const refreshUserData = async () => {
+      // Prevent multiple simultaneous refreshes
+      if (isRefreshing) {
+        return;
+      }
+      
       try {
-        const userData = await getUser();
-        setUser(userData);
+        isRefreshing = true;
+        
+        // Clear any pending refresh
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+        
+        // Add a small delay to ensure backend has finished updating
+        refreshTimeout = setTimeout(async () => {
+          try {
+            const userData = await getUser();
+            if (userData) {
+              setUser(userData);
+            }
+          } catch (error) {
+            console.error('Error refreshing user data:', error);
+            // Retry once after error
+            setTimeout(async () => {
+              try {
+                const userData = await getUser();
+                if (userData) {
+                  setUser(userData);
+                }
+              } catch (retryError) {
+                console.error('Error retrying user data refresh:', retryError);
+              }
+            }, 500);
+          } finally {
+            isRefreshing = false;
+          }
+        }, 200);
       } catch (error) {
-        console.error('Error refreshing user data:', error);
+        console.error('Error in refreshUserData:', error);
+        isRefreshing = false;
       }
     };
 
     // Listen for custom event to refresh user data
-    window.addEventListener('refreshUserData', refreshUserData);
+    const handleRefresh = () => {
+      refreshUserData();
+    };
+    
+    window.addEventListener('refreshUserData', handleRefresh);
 
     return () => {
-      window.removeEventListener('refreshUserData', refreshUserData);
+      window.removeEventListener('refreshUserData', handleRefresh);
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
     };
   }, []);
 

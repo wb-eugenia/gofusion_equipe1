@@ -23,8 +23,10 @@ export default function CheckInPage() {
       const successMsg = result.message || 'Inscription réussie !';
       setSuccess(successMsg);
       showSuccess('🎉 +10 🍌 bananes ajoutées à ton solde !');
-      // Refresh user data in layout (bananas)
-      window.dispatchEvent(new Event('refreshUserData'));
+      // Refresh user data in layout (bananas) - add small delay to ensure backend update is complete
+      setTimeout(() => {
+        window.dispatchEvent(new Event('refreshUserData'));
+      }, 300);
       setTimeout(() => {
         // Redirect to session quiz page
         router.push(`/student/session/quiz?code=${codeToCheck.toUpperCase()}`);
