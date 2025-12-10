@@ -58,7 +58,7 @@ export default function RankingPage() {
       {/* Podium Top 3 - Optimized for mobile */}
       <div className="relative rounded-2xl overflow-hidden mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6">
         {/* Confetti background - more subtle */}
-        <div className="pointer-events-none absolute inset-0 opacity-10">
+        <div className="pointer-events-none absolute inset-0 opacity-10 rounded-2xl">
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <g fill="currentColor" className="text-secondary">
               <circle cx="15%" cy="20%" r="3" />
@@ -114,16 +114,6 @@ export default function RankingPage() {
                 className={`relative flex-1 max-w-[120px] sm:max-w-[160px] ${orderClass} ${podiumStyles.bg} ${podiumStyles.border} ${podiumStyles.ring} ${podiumStyles.height} rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer overflow-hidden`}
                 onClick={() => handleProfileClick(student.id)}
               >
-                {/* Special symbols for top 3 */}
-                {index === 0 && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl z-10">👑</div>
-                )}
-                {index === 1 && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl z-10">⭐</div>
-                )}
-                {index === 2 && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-2xl z-10">🎖️</div>
-                )}
                 
                 {/* Content container */}
                 <div className="relative h-full flex flex-col items-center justify-between p-3">

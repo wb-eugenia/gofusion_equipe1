@@ -28,8 +28,24 @@ export default function BadgeCard({ badge, unlocked }: BadgeCardProps) {
       )}
       
       <div className="text-center">
-        <div className="text-6xl mb-3">
-          {unlocked ? '🎖️' : '🔒'}
+        <div className="mb-3 flex items-center justify-center">
+          {unlocked && badge.icon ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img 
+              src={badge.icon} 
+              alt={badge.name} 
+              className="w-16 h-16 object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<div class="text-6xl">🎖️</div>';
+                }
+              }}
+            />
+          ) : (
+            <div className="text-6xl">🔒</div>
+          )}
         </div>
         <h3 className={`text-lg font-semibold mb-1 ${unlocked ? 'text-gray-900' : 'text-gray-500'}`}>
           {badge.name}
