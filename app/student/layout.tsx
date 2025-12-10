@@ -114,6 +114,44 @@ export default function StudentLayout({
     }
   }, [pathname, user]);
 
+  // Listen for user data refresh events (when bananas are gained/spent)
+  useEffect(() => {
+    const refreshUserData = async () => {
+      try {
+        const userData = await getUser();
+        setUser(userData);
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    };
+
+    // Listen for custom event to refresh user data
+    window.addEventListener('refreshUserData', refreshUserData);
+
+    return () => {
+      window.removeEventListener('refreshUserData', refreshUserData);
+    };
+  }, []);
+
+  // Listen for skin refresh events (when skin is activated)
+  useEffect(() => {
+    const refreshSkin = async () => {
+      try {
+        const skinsData = await getMySkins();
+        setActiveSkin(skinsData.activeSkin);
+      } catch (error) {
+        console.error('Error refreshing skin:', error);
+      }
+    };
+
+    // Listen for custom event to refresh skin
+    window.addEventListener('refreshSkin', refreshSkin);
+
+    return () => {
+      window.removeEventListener('refreshSkin', refreshSkin);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

@@ -54,6 +54,16 @@ export default function ShopPage() {
 
   useEffect(() => {
     loadData();
+    
+    // Listen for user data refresh events (when bananas are gained/spent)
+    const refreshUserData = () => {
+      getUser().then(setUser).catch(console.error);
+    };
+    
+    window.addEventListener('refreshUserData', refreshUserData);
+    return () => {
+      window.removeEventListener('refreshUserData', refreshUserData);
+    };
   }, []);
 
   const loadData = async () => {
@@ -76,6 +86,8 @@ export default function ShopPage() {
     try {
       await purchaseItem(item.id);
       showSuccess(`✅ ${item.name} acheté ! Skin ajouté à ton inventaire`);
+      // Refresh user data in layout (bananas)
+      window.dispatchEvent(new Event('refreshUserData'));
       await loadData();
     } catch (error: any) {
       showError(error.message || '❌ Erreur lors de l\'achat');
@@ -86,6 +98,8 @@ export default function ShopPage() {
     try {
       await activateSkin(skinId);
       showSuccess('✨ Skin activé avec succès !');
+      // Refresh skin in layout (header)
+      window.dispatchEvent(new Event('refreshSkin'));
       await loadData();
     } catch (error: any) {
       showError(error.message || '❌ Erreur lors de l\'activation du skin');

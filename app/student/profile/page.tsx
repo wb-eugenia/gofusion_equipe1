@@ -21,6 +21,16 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadData();
+    
+    // Listen for user data refresh events (when bananas are gained/spent)
+    const refreshUserData = () => {
+      getUser().then(setUser).catch(console.error);
+    };
+    
+    window.addEventListener('refreshUserData', refreshUserData);
+    return () => {
+      window.removeEventListener('refreshUserData', refreshUserData);
+    };
   }, []);
 
   const loadData = async () => {
@@ -53,6 +63,8 @@ export default function ProfilePage() {
     try {
       await activateSkin(skinId);
       showSuccess('Skin activé avec succès !');
+      // Refresh skin in layout (header)
+      window.dispatchEvent(new Event('refreshSkin'));
       await loadData();
     } catch (error: any) {
       showError(error.message || 'Erreur lors du changement de skin');

@@ -124,6 +124,8 @@ export default function CourseQuizPage() {
       try {
         const result = await completeCourse(courseId);
         showSuccess(`🎉 Cours complété ! +${result.xpGained} 🍌 bananes gagnées !`);
+        // Refresh user data in layout (bananas)
+        window.dispatchEvent(new Event('refreshUserData'));
       } catch (error: any) {
         console.error('Error completing course:', error);
         showError('Erreur lors de la validation du cours');

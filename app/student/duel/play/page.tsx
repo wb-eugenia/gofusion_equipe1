@@ -253,8 +253,12 @@ export default function DuelPage() {
       if (isWinner) {
         const reward = duel.betAmount > 0 ? duel.betAmount * 2 : 20;
         showSuccess(`🎉 Victoire ! +${reward} 🍌 bananes gagnées !`);
+        // Refresh user data in layout (bananas)
+        window.dispatchEvent(new Event('refreshUserData'));
       } else {
         showError('😔 Défaite... Réessaye pour ta revanche !');
+        // Refresh user data even on loss (bananas were bet)
+        window.dispatchEvent(new Event('refreshUserData'));
       }
     }
     

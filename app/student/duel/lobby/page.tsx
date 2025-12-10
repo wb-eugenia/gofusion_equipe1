@@ -130,7 +130,18 @@ export default function DuelLobbyPage() {
     const interval = setInterval(() => {
       loadData();
     }, pollInterval);
-    return () => clearInterval(interval);
+    
+    // Listen for user data refresh events (when bananas are gained/spent)
+    const refreshUserData = () => {
+      getUser().then(setUser).catch(console.error);
+    };
+    
+    window.addEventListener('refreshUserData', refreshUserData);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refreshUserData', refreshUserData);
+    };
   }, [pollInterval]);
 
   const loadData = useCallback(async () => {
