@@ -31,7 +31,7 @@ Write-Host "📊 Étape 1: Application des migrations de base de données..." -F
 
 # Appliquer le schéma principal
 Write-Host "  → Application du schéma principal..." -ForegroundColor Gray
-wrangler d1 execute gamification-db --file=./prisma/migrations/schema.sql
+wrangler d1 execute gamification-db --remote --file=./prisma/migrations/schema.sql
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ⚠️  Le schéma principal existe peut-être déjà (c'est normal)" -ForegroundColor Yellow
 }
@@ -46,10 +46,13 @@ $migrations = @(
     "add-duel-bet.sql",
     "add-friends-system.sql",
     "add-shop-system.sql",
+    "add-last-activity-date.sql",
+    "add-course-hidden.sql",
+    "add-theoretical-content.sql",
     "add-session-quiz.sql",
+    "add-teacher-codes.sql",
     "add-fixed-sessions.sql",
     "add-stress-system.sql",
-    "add-theoretical-content.sql",
     "add-analytics-time.sql",
     "fix-missing-columns.sql"
 )
@@ -58,7 +61,7 @@ foreach ($migration in $migrations) {
     $migrationPath = "./prisma/migrations/$migration"
     if (Test-Path $migrationPath) {
         Write-Host "  → Application de $migration..." -ForegroundColor Gray
-        wrangler d1 execute gamification-db --file=$migrationPath
+        wrangler d1 execute gamification-db --remote --file=$migrationPath
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  ⚠️  $migration a peut-être déjà été appliquée (c'est normal)" -ForegroundColor Yellow
         }

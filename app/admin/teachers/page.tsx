@@ -131,8 +131,7 @@ export default function AdminTeachersPage() {
 
   const handleDeleteTeacher = (teacher: Teacher) => {
     showConfirm(
-      `Supprimer le professeur "${teacher.prenom}" ?`,
-      'Cette action est irréversible. Tous les codes associés seront également supprimés.',
+      `Supprimer le professeur "${teacher.prenom}" ? Cette action est irréversible. Tous les codes associés seront également supprimés.`,
       async () => {
         try {
           await deleteTeacher(teacher.id);

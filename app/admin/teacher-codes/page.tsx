@@ -112,8 +112,7 @@ export default function AdminTeacherCodesPage() {
 
   const handleDelete = (codeId: string) => {
     showConfirm(
-      'Supprimer ce code ?',
-      'Cette action est irréversible.',
+      'Supprimer ce code ? Cette action est irréversible.',
       async () => {
         try {
           await deleteTeacherCode(codeId);
@@ -121,7 +120,8 @@ export default function AdminTeacherCodesPage() {
         } catch (error: any) {
           showError(error.message || 'Erreur lors de la suppression');
         }
-      }
+      },
+      'Confirmer la suppression'
     );
   };
 

@@ -57,8 +57,7 @@ export default function AdminUsersPage() {
 
   const handleReset = (userId: string, userName: string) => {
     showConfirm(
-      `Réinitialiser le compte de ${userName} ?`,
-      'Cette action va supprimer toutes les données (badges, progression, achats, skins) mais gardera l\'historique des duels et amitiés. L\'utilisateur sera remis à zéro.',
+      `Réinitialiser le compte de ${userName} ? Cette action va supprimer toutes les données (badges, progression, achats, skins) mais gardera l'historique des duels et amitiés. L'utilisateur sera remis à zéro.`,
       async () => {
         try {
           await apiRequest<{ success: boolean }>(`/api/admin/users/${userId}/reset`, {
@@ -82,8 +81,7 @@ export default function AdminUsersPage() {
     }
     
     showConfirm(
-      `Supprimer définitivement le compte de ${userName} ?`,
-      'Cette action est irréversible. Toutes les données de l\'utilisateur seront supprimées.',
+      `Supprimer définitivement le compte de ${userName} ? Cette action est irréversible. Toutes les données de l'utilisateur seront supprimées.`,
       async () => {
         try {
           await apiRequest<{ success: boolean }>(`/api/admin/users/${userId}`, {

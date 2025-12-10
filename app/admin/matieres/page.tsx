@@ -79,8 +79,7 @@ export default function AdminMatieresPage() {
 
   const handleDelete = (matiere: Matiere) => {
     showConfirm(
-      `Supprimer la matière "${matiere.nom}" ?`,
-      'Cette action est irréversible. Tous les cours associés seront également supprimés.',
+      `Supprimer la matière "${matiere.nom}" ? Cette action est irréversible. Tous les cours associés seront également supprimés.`,
       async () => {
         try {
           await deleteMatiere(matiere.id);
@@ -89,7 +88,8 @@ export default function AdminMatieresPage() {
         } catch (error: any) {
           showError(error.message || 'Erreur lors de la suppression');
         }
-      }
+      },
+      'Confirmer la suppression'
     );
   };
 

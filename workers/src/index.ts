@@ -1905,7 +1905,7 @@ app.put('/api/admin/teacher-codes/:id', async (c) => {
     
     return c.json({
       ...updated,
-      courseIds: updated.courseIds ? JSON.parse(updated.courseIds) : null,
+      courseIds: updated?.courseIds ? JSON.parse(updated.courseIds) : null,
     });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
