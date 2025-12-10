@@ -83,6 +83,12 @@ export default function CourseQuizPage() {
     }
   };
 
+  const handleQuit = () => {
+    if (window.confirm('Êtes-vous sûr de vouloir quitter ce cours ? Votre progression ne sera pas sauvegardée.')) {
+      router.push('/student/courses');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!course) return;
     
@@ -323,12 +329,23 @@ export default function CourseQuizPage() {
             <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
               {/* Header */}
               <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  {course.titre}
-                </h1>
-                {course.matiere && (
-                  <p className="text-gray-600">Matière: {course.matiere.nom}</p>
-                )}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                      {course.titre}
+                    </h1>
+                    {course.matiere && (
+                      <p className="text-gray-600">Matière: {course.matiere.nom}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleQuit}
+                    className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 text-sm whitespace-nowrap"
+                    title="Quitter le cours"
+                  >
+                    ✕ Quitter
+                  </button>
+                </div>
               </div>
 
               {/* Progress */}
@@ -484,15 +501,26 @@ export default function CourseQuizPage() {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
               <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  {course.titre} - Memory
-                </h1>
-                {course.matiere && (
-                  <p className="text-gray-600">Matière: {course.matiere.nom}</p>
-                )}
-                <p className="text-gray-600 mt-2">
-                  Trouvez toutes les paires en cliquant sur les cartes.
-                </p>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                      {course.titre} - Memory
+                    </h1>
+                    {course.matiere && (
+                      <p className="text-gray-600">Matière: {course.matiere.nom}</p>
+                    )}
+                    <p className="text-gray-600 mt-2">
+                      Trouvez toutes les paires en cliquant sur les cartes.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleQuit}
+                    className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 text-sm whitespace-nowrap"
+                    title="Quitter le cours"
+                  >
+                    ✕ Quitter
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -645,15 +673,26 @@ export default function CourseQuizPage() {
 
               <div className="relative z-10">
               <div className="mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  {course.titre} - Relier les définitions
-                </h1>
-                {course.matiere && (
-                  <p className="text-gray-600">Matière: {course.matiere.nom}</p>
-                )}
-                <p className="text-gray-600 mt-2">
-                  Cliquez d’abord sur une définition, puis sur le mot correspondant.
-                </p>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                      {course.titre} - Relier les définitions
+                    </h1>
+                    {course.matiere && (
+                      <p className="text-gray-600">Matière: {course.matiere.nom}</p>
+                    )}
+                    <p className="text-gray-600 mt-2">
+                      Cliquez d'abord sur une définition, puis sur le mot correspondant.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleQuit}
+                    className="ml-4 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 text-sm whitespace-nowrap"
+                    title="Quitter le cours"
+                  >
+                    ✕ Quitter
+                  </button>
+                </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-6 mb-6">
