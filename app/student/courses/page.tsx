@@ -87,7 +87,7 @@ export default function CoursesPage() {
                   <div
                     key={matiere.id}
                     onClick={() => setSelectedMatiere(matiere)}
-                    className="bg-surface rounded-2xl shadow-card p-6 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 cursor-pointer relative"
+                    className="bg-surface rounded-2xl shadow-card p-4 sm:p-6 hover:shadow-lift hover:-translate-y-1 active:scale-[0.98] transition-all duration-200 cursor-pointer relative touch-manipulation min-h-[120px] sm:min-h-[140px]"
                   >
                     {isFrancais && (
                       <img 
@@ -187,7 +187,7 @@ export default function CoursesPage() {
                     ) : (
                       <button
                         onClick={() => router.push(`/student/courses/quiz?id=${course.id}`)}
-                        className="px-5 py-2.5 bg-primary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 font-bold text-sm min-h-[44px]"
+                        className="px-5 py-2.5 bg-primary text-white rounded-2xl hover:brightness-105 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 font-bold text-sm sm:text-base min-h-[48px] sm:min-h-[52px] touch-manipulation"
                         style={{ boxShadow: '0 4px 0 0 rgba(157, 95, 47, 1)', borderBottom: '4px solid rgba(157, 95, 47, 1)' }}
                       >
                         {course.gameType === 'memory'

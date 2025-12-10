@@ -166,7 +166,7 @@ export default function RankingPage() {
           {ranking.top10.slice(3).map((student: any, index: number) => (
             <div
               key={student.id}
-              className="px-6 py-5 flex items-center justify-between hover:bg-hover transition-all duration-200 cursor-pointer min-h-[68px]"
+              className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between hover:bg-hover active:bg-hover transition-all duration-200 cursor-pointer min-h-[68px] touch-manipulation"
               onClick={() => handleProfileClick(student.id)}
             >
               <div className="flex items-center space-x-4">

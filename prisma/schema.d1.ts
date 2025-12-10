@@ -4,8 +4,9 @@ export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   prenom: text('prenom').notNull(),
   xp: integer('xp').default(0).notNull(),
-  role: text('role').default('student').notNull(), // 'student' | 'admin'
+  role: text('role').default('student').notNull(), // 'student' | 'admin' | 'teacher'
   streakDays: integer('streak_days').default(0).notNull(),
+  lastActivityDate: integer('last_activity_date', { mode: 'timestamp' }), // Date of last activity for streak calculation
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -24,6 +25,7 @@ export const courses = sqliteTable('courses', {
   gameType: text('game_type').notNull().default('quiz'), // 'quiz' | 'memory' | 'match'
   theoreticalContent: text('theoretical_content'), // Contenu théorique WYSIWYG
   xpReward: integer('xp_reward').default(50).notNull(),
+  isHidden: integer('is_hidden', { mode: 'boolean' }).default(false).notNull(), // Hide course without deleting
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -245,4 +247,20 @@ export type ClanMember = typeof clanMembers.$inferSelect;
 export type ClanWar = typeof clanWars.$inferSelect;
 export type ClanWarContribution = typeof clanWarContributions.$inferSelect;
 export type ClanWarsConfig = typeof clanWarsConfig.$inferSelect;
+
+export const teacherCodes = sqliteTable('teacher_codes', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  teacherId: text('teacher_id').references(() => users.id, { onDelete: 'cascade' }), // Nullable for special codes
+  matiereId: text('matiere_id').references(() => matieres.id, { onDelete: 'cascade' }), // For special codes: 1 code = 1 matiere
+  courseIds: text('course_ids'), // JSON array of course IDs
+  maxUses: integer('max_uses').default(-1).notNull(), // -1 = unlimited
+  currentUses: integer('current_uses').default(0).notNull(),
+  isSpecialCode: integer('is_special_code', { mode: 'boolean' }).default(false).notNull(), // true = code for creating teacher account
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type TeacherCode = typeof teacherCodes.$inferSelect;
+export type NewTeacherCode = typeof teacherCodes.$inferInsert;
 

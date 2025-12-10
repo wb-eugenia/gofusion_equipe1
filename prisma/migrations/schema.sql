@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   xp INTEGER DEFAULT 0 NOT NULL,
   role TEXT DEFAULT 'student' NOT NULL,
   streak_days INTEGER DEFAULT 0 NOT NULL,
+  last_activity_date INTEGER,
   created_at INTEGER NOT NULL
 );
 
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS courses (
   matiere_id TEXT,
   game_type TEXT NOT NULL DEFAULT 'quiz',
   xp_reward INTEGER DEFAULT 50 NOT NULL,
+  is_hidden INTEGER DEFAULT 0 NOT NULL,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (matiere_id) REFERENCES matieres(id) ON DELETE CASCADE
 );

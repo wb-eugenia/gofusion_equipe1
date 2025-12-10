@@ -181,6 +181,10 @@ export default function DuelLobbyPage() {
   const filteredDuels = useMemo(() => {
     let filtered = [...duels];
 
+    // IMPORTANT: Filter out full duels (duels are limited to 2 players)
+    // Only show duels that don't have a player2 yet
+    filtered = filtered.filter(duel => !duel.player2Id);
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -306,12 +310,19 @@ export default function DuelLobbyPage() {
       router.push(`/student/duel/play?id=${duel.id}`);
     } catch (error: any) {
       const isInsufficientBananas = error.message?.includes('Insufficient bananas') || error.message?.includes('pas assez de bananes');
+      const isDuelFull = error.message?.includes('already full') || error.message?.includes('no longer available') || error.message?.includes('Duel is already full');
       const requiredMatch = error.message?.match(/(\d+)\s+bananas?/i);
       const requiredAmount = requiredMatch ? parseInt(requiredMatch[1]) : undefined;
       
+      // Improve error message for full duels
+      let errorMessage = error.message || 'Une erreur est survenue';
+      if (isDuelFull) {
+        errorMessage = 'Ce duel est déjà complet. Les duels sont limités à 2 joueurs maximum.';
+      }
+      
       setErrorPopup({ 
         show: true, 
-        message: error.message || 'Une erreur est survenue',
+        message: errorMessage,
         isInsufficientBananas,
         requiredAmount
       });

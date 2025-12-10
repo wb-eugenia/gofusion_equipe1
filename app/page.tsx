@@ -2,15 +2,20 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { register } from '@/lib/api';
+import { register, teacherLogin } from '@/lib/api';
 import Link from 'next/link';
 import MonkeyProfessor from '@/components/MonkeyProfessor';
 
 export default function Home() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [prenom, setPrenom] = useState('');
+  const [code, setCode] = useState('');
+  const [teacherCode, setTeacherCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [teacherLoading, setTeacherLoading] = useState(false);
   const [error, setError] = useState('');
+  const [teacherError, setTeacherError] = useState('');
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -19,14 +24,55 @@ export default function Home() {
     setError('');
 
     try {
-      const { sessionId } = await register(prenom);
+      const { sessionId, role, isTeacher } = await register(prenom, code || undefined);
       localStorage.setItem('sessionId', sessionId);
       setShowRegisterModal(false);
-      router.push('/student/courses');
+      setPrenom('');
+      setCode('');
+      
+      // Redirect based on role
+      if (isTeacher || role === 'teacher') {
+        router.push('/teacher/courses');
+      } else {
+        router.push('/student/courses');
+      }
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTeacherLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeacherLoading(true);
+    setTeacherError('');
+
+    try {
+      if (!teacherCode.trim()) {
+        setTeacherError('Le code d\'accès est requis');
+        setTeacherLoading(false);
+        return;
+      }
+
+      // Use teacher login with code only
+      const { sessionId, role, isTeacher } = await teacherLogin(teacherCode.trim().toUpperCase());
+      
+      // Verify that the user is actually a teacher
+      if (!isTeacher && role !== 'teacher') {
+        setTeacherError('Code invalide ou vous n\'êtes pas un professeur');
+        setTeacherLoading(false);
+        return;
+      }
+
+      localStorage.setItem('sessionId', sessionId);
+      setShowTeacherModal(false);
+      setTeacherCode('');
+      router.push('/teacher/courses');
+    } catch (err: any) {
+      setTeacherError(err.message || 'Code invalide ou erreur lors de la connexion');
+    } finally {
+      setTeacherLoading(false);
     }
   };
 
@@ -43,18 +89,24 @@ export default function Home() {
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link
                 href="/admin"
-                className="px-4 sm:px-6 py-2.5 sm:py-3 bg-textMuted text-white rounded-2xl text-sm font-bold hover:brightness-105 transition-all duration-150 min-h-[44px] flex items-center justify-center"
-                style={{ boxShadow: '0 4px 0 0 rgba(107, 91, 79, 1)', borderBottom: '4px solid rgba(107, 91, 79, 1)' }}
+                className="px-3 sm:px-4 py-2 sm:py-2.5 bg-textMuted text-white rounded-xl text-xs sm:text-sm font-bold hover:brightness-105 transition-all duration-150 min-h-[44px] flex items-center justify-center"
+                style={{ boxShadow: '0 3px 0 0 rgba(107, 91, 79, 1)', borderBottom: '3px solid rgba(107, 91, 79, 1)' }}
               >
                 Admin
               </Link>
               <button
-                onClick={() => setShowRegisterModal(true)}
-                className="px-4 sm:px-6 py-2.5 sm:py-3 bg-primary text-white rounded-2xl text-sm font-bold hover:brightness-105 transition-all duration-150 min-h-[44px] flex items-center justify-center"
-                style={{ boxShadow: '0 4px 0 0 rgba(157, 95, 47, 1)', borderBottom: '4px solid rgba(157, 95, 47, 1)' }}
+                onClick={() => setShowTeacherModal(true)}
+                className="px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:brightness-105 transition-all duration-150 min-h-[44px] flex items-center justify-center"
+                style={{ boxShadow: '0 3px 0 0 rgba(37, 99, 235, 1)', borderBottom: '3px solid rgba(37, 99, 235, 1)' }}
               >
-                <span className="hidden sm:inline">Créer un compte</span>
-                <span className="sm:hidden">S'inscrire</span>
+                Prof
+              </button>
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="px-3 sm:px-4 py-2 sm:py-2.5 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold hover:brightness-105 transition-all duration-150 min-h-[44px] flex items-center justify-center"
+                style={{ boxShadow: '0 3px 0 0 rgba(157, 95, 47, 1)', borderBottom: '3px solid rgba(157, 95, 47, 1)' }}
+              >
+                Étudiant
               </button>
             </div>
           </div>
@@ -71,18 +123,66 @@ export default function Home() {
             Transformez votre apprentissage en jeu avec notre plateforme de gamification.
             Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !
           </p>
+          {/* Dashboard Selection */}
+          <div className="max-w-4xl mx-auto mb-8 sm:mb-12">
+            <h2 className="text-xl sm:text-2xl font-bold text-text mb-6 text-center">
+              Choisissez votre espace
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 px-4">
+              {/* Admin Dashboard */}
+              <Link
+                href="/admin"
+                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center"
+              >
+                <div className="text-5xl sm:text-6xl mb-4">👨‍💼</div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-primary transition">
+                  Admin
+                </h3>
+                <p className="text-textMuted text-sm sm:text-base mb-4">
+                  Gérez les cours, sessions, badges et utilisateurs
+                </p>
+                <span className="px-4 sm:px-6 py-2 sm:py-3 bg-textMuted text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full pointer-events-none">
+                  Accéder au dashboard
+                </span>
+              </Link>
+
+              {/* Teacher Dashboard */}
+              <button
+                onClick={() => setShowTeacherModal(true)}
+                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center w-full"
+              >
+                <div className="text-5xl sm:text-6xl mb-4">👨‍🏫</div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-blue-600 transition">
+                  Professeur
+                </h3>
+                <p className="text-textMuted text-sm sm:text-base mb-4">
+                  Créez des cours, gérez les sessions et consultez les analytics
+                </p>
+                <span className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full">
+                  Accéder au dashboard
+                </span>
+              </button>
+
+              {/* Student Dashboard */}
+              <button
+                onClick={() => setShowRegisterModal(true)}
+                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center"
+              >
+                <div className="text-5xl sm:text-6xl mb-4">👨‍🎓</div>
+                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-primary transition">
+                  Étudiant
+                </h3>
+                <p className="text-textMuted text-sm sm:text-base mb-4">
+                  Apprenez, gagnez des bananes et débloquez des badges
+                </p>
+                <div className="px-4 sm:px-6 py-2 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full">
+                  Créer un compte
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-4">
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="w-full sm:w-auto px-6 sm:px-8 py-4 bg-primary text-white rounded-2xl font-bold text-base sm:text-lg hover:brightness-105 hover:translate-y-1 active:translate-y-[5px] transition-all duration-150 min-h-[56px]"
-              style={{ boxShadow: '0 5px 0 0 rgba(157, 95, 47, 1)', borderBottom: '5px solid rgba(157, 95, 47, 1)' }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 0 0 rgba(157, 95, 47, 1)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 5px 0 0 rgba(157, 95, 47, 1)'}
-              onMouseDown={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 rgba(157, 95, 47, 1)'}
-              onMouseUp={(e) => e.currentTarget.style.boxShadow = '0 2px 0 0 rgba(157, 95, 47, 1)'}
-            >
-              Commencer maintenant
-            </button>
             <Link
               href="#features"
               className="w-full sm:w-auto px-6 sm:px-8 py-4 bg-surface text-primary rounded-2xl font-bold text-base sm:text-lg hover:bg-hover hover:translate-y-1 active:translate-y-[5px] transition-all duration-150 border-2 border-primary min-h-[56px] flex items-center justify-center"
@@ -211,13 +311,29 @@ export default function Home() {
           <p className="text-lg sm:text-xl font-medium text-white/90 mb-8">
             Rejoignez des centaines d'étudiants qui transforment leur apprentissage en jeu
           </p>
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="px-6 sm:px-8 py-4 bg-white text-primary rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px]"
-            style={{ boxShadow: '0 5px 0 0 rgba(228, 210, 194, 1)', borderBottom: '5px solid rgba(228, 210, 194, 1)' }}
-          >
-            Créer mon compte gratuitement
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/admin"
+              className="px-6 sm:px-8 py-4 bg-white text-textMuted rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px] flex items-center justify-center"
+              style={{ boxShadow: '0 5px 0 0 rgba(107, 91, 79, 1)', borderBottom: '5px solid rgba(107, 91, 79, 1)' }}
+            >
+              👨‍💼 Admin
+            </Link>
+            <button
+              onClick={() => setShowTeacherModal(true)}
+              className="px-6 sm:px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px] flex items-center justify-center"
+              style={{ boxShadow: '0 5px 0 0 rgba(37, 99, 235, 1)', borderBottom: '5px solid rgba(37, 99, 235, 1)' }}
+            >
+              👨‍🏫 Professeur
+            </button>
+            <button
+              onClick={() => setShowRegisterModal(true)}
+              className="px-6 sm:px-8 py-4 bg-white text-primary rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px]"
+              style={{ boxShadow: '0 5px 0 0 rgba(228, 210, 194, 1)', borderBottom: '5px solid rgba(228, 210, 194, 1)' }}
+            >
+              👨‍🎓 Étudiant
+            </button>
+          </div>
         </div>
       </section>
 
@@ -231,6 +347,69 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Teacher Login Modal */}
+      {showTeacherModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface rounded-2xl shadow-lift p-6 sm:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl sm:text-3xl font-black text-text mb-2">
+                Accès Professeur
+              </h2>
+              <p className="text-textMuted">
+                Entrez votre code d'accès pour accéder au dashboard
+              </p>
+            </div>
+
+            <form onSubmit={handleTeacherLogin} className="space-y-6">
+              <div>
+                <label htmlFor="teacherCode" className="block text-sm font-medium text-text mb-2">
+                  Code d'accès *
+                </label>
+                <input
+                  id="teacherCode"
+                  type="text"
+                  value={teacherCode}
+                  onChange={(e) => setTeacherCode(e.target.value.toUpperCase())}
+                  required
+                  className="w-full px-4 py-3 border-2 border-border rounded-2xl focus:border-primary focus:outline-none transition text-text bg-surface min-h-[52px] font-mono font-medium text-center text-lg"
+                  placeholder="Entrez votre code d'accès"
+                  autoFocus
+                />
+                <p className="text-xs text-textMuted mt-1">
+                  Le code vous a été fourni lors de la création de votre compte professeur.
+                </p>
+              </div>
+
+              {teacherError && (
+                <div className="bg-error/10 border-2 border-error/30 text-error px-4 py-3 rounded-2xl font-medium">
+                  {teacherError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={teacherLoading}
+                className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:brightness-105 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px]"
+                style={!teacherLoading ? { boxShadow: '0 5px 0 0 rgba(37, 99, 235, 1)', borderBottom: '5px solid rgba(37, 99, 235, 1)' } : {}}
+              >
+                {teacherLoading ? 'Connexion...' : 'Accéder au dashboard'}
+              </button>
+            </form>
+
+            <button
+              onClick={() => {
+                setShowTeacherModal(false);
+                setTeacherError('');
+                setTeacherCode('');
+              }}
+              className="mt-4 w-full text-textMuted hover:text-text transition min-h-[44px] font-bold"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Register Modal */}
       {showRegisterModal && (
@@ -262,6 +441,23 @@ export default function Home() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="code" className="block text-sm font-medium text-text mb-2">
+                  Code professeur (optionnel)
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-3 border-2 border-border rounded-2xl focus:border-primary focus:outline-none transition text-text bg-surface min-h-[52px] font-medium"
+                  placeholder="Entrez le code si vous en avez un"
+                />
+                <p className="text-xs text-textMuted mt-1">
+                  Si un professeur vous a donné un code, entrez-le ici pour accéder à ses cours.
+                </p>
+              </div>
+
               {error && (
                 <div className="bg-error/10 border-2 border-error/30 text-error px-4 py-3 rounded-2xl font-medium">
                   {error}
@@ -283,6 +479,7 @@ export default function Home() {
                 setShowRegisterModal(false);
                 setError('');
                 setPrenom('');
+                setCode('');
               }}
               className="mt-4 w-full text-textMuted hover:text-text transition min-h-[44px] font-bold"
             >

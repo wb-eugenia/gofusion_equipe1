@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, createTeacherSession } from '@/lib/api';
+import Link from 'next/link';
 import { usePopup } from '@/hooks/usePopup';
 
-export default function SessionsPage() {
+export default function TeacherSessionsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +13,7 @@ export default function SessionsPage() {
   const [formData, setFormData] = useState({
     courseId: '',
   });
-  const { showError, showConfirm, PopupComponent } = usePopup();
+  const { showError, PopupComponent } = usePopup();
 
   useEffect(() => {
     loadData();
@@ -21,11 +22,11 @@ export default function SessionsPage() {
   const loadData = async () => {
     try {
       const [sessionsData, coursesData] = await Promise.all([
-        apiRequest<any[]>('/api/admin/sessions'),
-        apiRequest<any[]>('/api/admin/courses'),
+        apiRequest<any[]>('/api/teacher/sessions'),
+        apiRequest<any[]>('/api/teacher/courses'),
       ]);
-      setSessions(sessionsData as any[]);
-      setCourses(coursesData as any[]);
+      setSessions(sessionsData);
+      setCourses(coursesData);
     } catch (error: any) {
       showError(error.message || 'Erreur lors du chargement');
     } finally {
@@ -41,10 +42,7 @@ export default function SessionsPage() {
         return;
       }
       
-      await apiRequest<any>('/api/admin/sessions', {
-        method: 'POST',
-        body: JSON.stringify({ courseId: formData.courseId }),
-      });
+      await createTeacherSession({ courseId: formData.courseId });
       
       await loadData();
       setShowModal(false);
@@ -56,7 +54,7 @@ export default function SessionsPage() {
 
   const handleStart = async (sessionId: string) => {
     try {
-      await apiRequest(`/api/admin/sessions/${sessionId}/start`, { method: 'POST' });
+      await apiRequest(`/api/teacher/sessions/${sessionId}/start`, { method: 'PUT' });
       loadData();
     } catch (error: any) {
       showError(error.message || 'Erreur lors du démarrage');
@@ -65,7 +63,7 @@ export default function SessionsPage() {
 
   const handleStop = async (sessionId: string) => {
     try {
-      await apiRequest(`/api/admin/sessions/${sessionId}/stop`, { method: 'POST' });
+      await apiRequest(`/api/teacher/sessions/${sessionId}/stop`, { method: 'PUT' });
       loadData();
     } catch (error: any) {
       showError(error.message || 'Erreur lors de l\'arrêt');
@@ -81,13 +79,12 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="p-6 max-w-7xl mx-auto">
       <PopupComponent />
-      
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-text mb-2">🎯 Sessions</h1>
-          <p className="text-textMuted">Gérez les sessions de quiz (mode Kahoot)</p>
+          <h1 className="text-3xl font-bold text-text mb-2">🎯 Mes Sessions</h1>
+          <p className="text-textMuted">Gérez vos sessions de quiz (mode Kahoot)</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -97,7 +94,6 @@ export default function SessionsPage() {
         </button>
       </div>
 
-      {/* Sessions List */}
       <div className="space-y-4">
         {sessions.length === 0 ? (
           <div className="text-center py-12 text-textMuted">
@@ -136,12 +132,28 @@ export default function SessionsPage() {
                     </button>
                   )}
                   {session.status === 'started' && (
-                    <button
-                      onClick={() => handleStop(session.id)}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[44px]"
+                    <>
+                      <button
+                        onClick={() => handleStop(session.id)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition min-h-[44px]"
+                      >
+                        Arrêter
+                      </button>
+                      <Link
+                        href={`/teacher/sessions/${session.id}`}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition min-h-[44px] flex items-center"
+                      >
+                        Voir participants
+                      </Link>
+                    </>
+                  )}
+                  {session.status === 'finished' && (
+                    <Link
+                      href={`/teacher/sessions/${session.id}`}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition min-h-[44px] flex items-center"
                     >
-                      Arrêter
-                    </button>
+                      Voir résultats
+                    </Link>
                   )}
                 </div>
               </div>
@@ -150,23 +162,22 @@ export default function SessionsPage() {
         )}
       </div>
 
-      {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-lg shadow-card p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-text mb-4">Créer une session</h2>
+          <div className="bg-surface rounded-lg shadow-lift p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-4 text-text">Nouvelle Session</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-text mb-1">
+                <label className="block text-sm font-medium text-text mb-2">
                   Cours *
                 </label>
                 <select
                   value={formData.courseId}
                   onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-border rounded-lg focus:ring-2 focus:ring-primary min-h-[44px]"
                   required
+                  className="w-full px-4 py-3 border-2 border-border rounded-lg focus:border-primary focus:outline-none transition text-text bg-surface min-h-[44px]"
                 >
-                  <option value="">Sélectionner un cours</option>
+                  <option value="">Sélectionnez un cours</option>
                   {courses.map((course) => (
                     <option key={course.id} value={course.id}>
                       {course.titre}
@@ -178,14 +189,17 @@ export default function SessionsPage() {
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition min-h-[44px]"
+                  className="flex-1 bg-primary text-white py-3 rounded-lg hover:bg-primary/90 transition font-bold min-h-[44px]"
                 >
                   Créer
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 bg-border text-text rounded-lg hover:bg-border/80 transition min-h-[44px]"
+                  onClick={() => {
+                    setShowModal(false);
+                    setFormData({ courseId: '' });
+                  }}
+                  className="flex-1 bg-border text-text py-3 rounded-lg hover:bg-hover transition font-bold min-h-[44px]"
                 >
                   Annuler
                 </button>
@@ -197,3 +211,4 @@ export default function SessionsPage() {
     </div>
   );
 }
+

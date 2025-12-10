@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { 
   createCourse, 
   updateCourse, 
-  deleteCourse, 
+  deleteCourse,
+  toggleCourseVisibility,
   getAdminMatieres,
   getAdminCourseQuestions,
   createAdminQuestion,
@@ -278,8 +279,15 @@ export default function AdminCoursesPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {courses.map((course) => (
-          <div key={course.id} className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">{course.titre}</h2>
+          <div key={course.id} className={`bg-white rounded-lg shadow-md p-6 ${course.isHidden ? 'opacity-60 border-2 border-gray-300' : ''}`}>
+            <div className="flex items-start justify-between mb-2">
+              <h2 className="text-xl font-semibold text-gray-900">{course.titre}</h2>
+              {course.isHidden && (
+                <span className="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs font-semibold">
+                  Masqué
+                </span>
+              )}
+            </div>
             <p className="text-gray-600 mb-4">{course.description}</p>
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
@@ -295,6 +303,23 @@ export default function AdminCoursesPage() {
                   className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition text-sm"
                 >
                   Modifier
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await toggleCourseVisibility(course.id);
+                      await loadData();
+                    } catch (error: any) {
+                      showError(error.message || 'Erreur lors de la modification');
+                    }
+                  }}
+                  className={`px-3 py-1 rounded hover:opacity-80 transition text-sm ${
+                    course.isHidden
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                  }`}
+                >
+                  {course.isHidden ? 'Afficher' : 'Masquer'}
                 </button>
                 <button
                   onClick={() => handleDelete(course.id)}

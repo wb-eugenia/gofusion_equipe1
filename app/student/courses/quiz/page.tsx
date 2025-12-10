@@ -353,7 +353,7 @@ export default function CourseQuizPage() {
 
                 {/* Options for multiple choice */}
                 {currentQuestion.type === 'multiple_choice' && options.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 pb-32 sm:pb-6">
                     {options.map((option, index) => {
                       const questionId = currentQuestion.id;
                       const isSelected = answers[questionId] === index.toString();
@@ -361,13 +361,13 @@ export default function CourseQuizPage() {
                         <button
                           key={index}
                           onClick={() => handleAnswer(questionId, index.toString())}
-                          className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                          className={`w-full text-left p-4 sm:p-5 rounded-lg border-2 transition-all min-h-[56px] sm:min-h-[64px] text-base sm:text-lg ${
                             isSelected
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-blue-300'
+                              ? 'border-blue-600 bg-blue-50 shadow-md scale-[1.02]'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 active:scale-[0.98]'
                           }`}
                         >
-                          <span className="font-medium text-gray-900">{option}</span>
+                          <span className="font-medium text-gray-900 block">{option}</span>
                         </button>
                       );
                     })}
@@ -376,18 +376,18 @@ export default function CourseQuizPage() {
               </div>
 
               {/* Navigation */}
-              <div className="flex justify-between gap-4">
+              <div className="flex justify-between gap-4 mt-6">
                 <button
                   onClick={handlePrevious}
                   disabled={currentQuestionIndex === 0}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 sm:px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] sm:min-h-[52px] text-sm sm:text-base font-semibold"
                 >
                   ← Précédent
                 </button>
                 <button
                   onClick={handleNext}
                   disabled={!answers[currentQuestion.id]}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 sm:px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] sm:min-h-[52px] text-sm sm:text-base font-semibold"
                 >
                   {currentQuestionIndex === totalQuestions - 1 ? 'Terminer' : 'Suivant →'}
                 </button>

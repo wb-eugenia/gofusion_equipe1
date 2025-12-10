@@ -35,8 +35,12 @@ export async function apiRequest<T>(
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      const error: any = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      // Better error handling for 404 and other errors
+      if (response.status === 404) {
+        throw new Error(`Route not found: ${endpoint}. Vérifiez que le worker est démarré (npm run worker:dev)`);
+      }
+      const error: any = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }));
+      throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
     }
     
     return response.json();
@@ -50,12 +54,22 @@ export async function apiRequest<T>(
 }
 
 // Auth
-export async function register(prenom: string) {
-  return apiRequest<{ sessionId: string; userId: string; prenom: string }>(
+export async function register(prenom: string, code?: string) {
+  return apiRequest<{ sessionId: string; userId: string; prenom: string; role: string; isAdmin: boolean; isTeacher: boolean }>(
     '/api/auth/register',
     {
       method: 'POST',
-      body: JSON.stringify({ prenom }),
+      body: JSON.stringify({ prenom, ...(code && { code }) }),
+    }
+  );
+}
+
+export async function teacherLogin(code: string) {
+  return apiRequest<{ sessionId: string; userId: string; prenom: string; role: string; isTeacher: boolean }>(
+    '/api/auth/teacher-login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ code }),
     }
   );
 }
@@ -71,6 +85,46 @@ export async function getMatieres() {
 
 export async function getAdminMatieres() {
   return apiRequest<any[]>('/api/admin/matieres');
+}
+
+export async function createMatiere(data: { nom: string; description?: string }) {
+  return apiRequest<any>('/api/admin/matieres', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateMatiere(matiereId: string, data: { nom: string; description?: string }) {
+  return apiRequest<any>(`/api/admin/matieres/${matiereId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMatiere(matiereId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/matieres/${matiereId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function createTeacher(data: { prenom: string; matiereId: string }) {
+  return apiRequest<{ user: any; matiere: any; code: string; message: string }>('/api/admin/teachers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTeacherCode(codeId: string, code: string) {
+  return apiRequest<any>(`/api/admin/teacher-codes/${codeId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function deleteTeacher(teacherId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/teachers/${teacherId}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function getCourses() {
@@ -188,6 +242,12 @@ export async function updateCourse(courseId: string, data: Partial<{
 export async function deleteCourse(courseId: string) {
   return apiRequest<{ success: boolean }>(`/api/admin/courses/${courseId}`, {
     method: 'DELETE',
+  });
+}
+
+export async function toggleCourseVisibility(courseId: string) {
+  return apiRequest<any>(`/api/admin/courses/${courseId}/toggle-visibility`, {
+    method: 'PUT',
   });
 }
 
@@ -471,6 +531,68 @@ export async function getAdminClanMembers() {
 export async function deleteClanMembership(membershipId: string) {
   return apiRequest<{ success: boolean }>(`/api/admin/clans/members/${membershipId}`, {
     method: 'DELETE',
+  });
+}
+
+// Admin - Teacher Codes
+export async function getTeacherCodes() {
+  return apiRequest<any[]>('/api/admin/teacher-codes');
+}
+
+export async function createTeacherCode(data: {
+  isSpecialCode?: boolean;
+  teacherId?: string;
+  matiereId?: string;
+  courseIds?: string[];
+  maxUses?: number;
+  expiresAt?: string;
+}) {
+  return apiRequest<any>('/api/admin/teacher-codes', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteTeacherCode(codeId: string) {
+  return apiRequest<{ success: boolean }>(`/api/admin/teacher-codes/${codeId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Teacher - Courses
+export async function createTeacherCourse(data: { 
+  titre: string; 
+  description: string; 
+  matiereId?: string;
+  gameType?: 'quiz' | 'memory' | 'match';
+  theoreticalContent?: string;
+  xpReward: number;
+}) {
+  return apiRequest<any>('/api/teacher/courses', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTeacherCourse(courseId: string, data: Partial<{ 
+  titre: string; 
+  description: string; 
+  matiereId?: string;
+  gameType?: 'quiz' | 'memory' | 'match';
+  theoreticalContent?: string;
+  xpReward: number;
+}>) {
+  return apiRequest<any>(`/api/teacher/courses/${courseId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// Teacher - Sessions
+export async function createTeacherSession(data: { courseId: string }) {
+  return apiRequest<any>('/api/teacher/sessions', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 

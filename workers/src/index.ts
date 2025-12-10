@@ -48,6 +48,70 @@ async function getUser(c: any): Promise<schema.User | null> {
   return user || null;
 }
 
+// Helper: Update user streak based on activity date
+async function updateUserStreak(db: any, userId: string, activityDate: Date = new Date()) {
+  const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  if (!user) return;
+  
+  // Normalize dates to start of day (midnight) for accurate day comparison
+  const activityDay = new Date(activityDate);
+  activityDay.setHours(0, 0, 0, 0);
+  
+  const lastActivityDate = user.lastActivityDate 
+    ? new Date(user.lastActivityDate)
+    : user.createdAt 
+    ? new Date(user.createdAt)
+    : null;
+  
+  if (!lastActivityDate) {
+    // First activity ever - start streak at 1
+    await db
+      .update(schema.users)
+      .set({ 
+        streakDays: 1,
+        lastActivityDate: activityDay
+      })
+      .where(eq(schema.users.id, userId));
+    return;
+  }
+  
+  const lastActivityDay = new Date(lastActivityDate);
+  lastActivityDay.setHours(0, 0, 0, 0);
+  
+  // Calculate difference in days
+  const timeDiff = activityDay.getTime() - lastActivityDay.getTime();
+  const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+  
+  let newStreak = user.streakDays;
+  
+  if (daysDiff === 0) {
+    // Same day - no change to streak, but update lastActivityDate
+    await db
+      .update(schema.users)
+      .set({ lastActivityDate: activityDay })
+      .where(eq(schema.users.id, userId));
+    return;
+  } else if (daysDiff === 1) {
+    // Next day - increment streak
+    newStreak = user.streakDays + 1;
+  } else if (daysDiff > 1) {
+    // Gap of more than 1 day - reset streak to 1
+    newStreak = 1;
+  } else {
+    // daysDiff < 0 (activity in the past) - don't update streak
+    return;
+  }
+  
+  // Update streak and last activity date
+  await db
+    .update(schema.users)
+    .set({ 
+      streakDays: newStreak,
+      lastActivityDate: activityDay
+    })
+    .where(eq(schema.users.id, userId));
+}
+
 // Helper: Check badges and unlock if conditions met
 async function checkAndUnlockBadges(c: any, userId: string) {
   const db = drizzle(c.env.DB, { schema });
@@ -128,12 +192,87 @@ async function checkAndUnlockBadges(c: any, userId: string) {
 
 const registerSchema = z.object({
   prenom: z.string().min(1).max(50),
+  code: z.string().optional(), // Optional teacher code
+});
+
+// Teacher login with code only
+app.post('/api/auth/teacher-login', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { code } = body;
+    
+    if (!code) {
+      return c.json({ error: 'Code is required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Find teacher code
+    const teacherCode = await db
+      .select()
+      .from(schema.teacherCodes)
+      .where(eq(schema.teacherCodes.code, code.toUpperCase()))
+      .get();
+    
+    if (!teacherCode) {
+      return c.json({ error: 'Code invalide' }, 400);
+    }
+    
+    // Check if code is expired
+    if (teacherCode.expiresAt && new Date(teacherCode.expiresAt) < new Date()) {
+      return c.json({ error: 'Ce code a expiré' }, 400);
+    }
+    
+    // Check if code has reached max uses
+    if (teacherCode.maxUses > 0 && teacherCode.currentUses >= teacherCode.maxUses) {
+      return c.json({ error: 'Ce code a atteint son nombre maximum d\'utilisations' }, 400);
+    }
+    
+    // Get the teacher user
+    if (!teacherCode.teacherId) {
+      return c.json({ error: 'Code non associé à un professeur' }, 400);
+    }
+    
+    const teacher = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, teacherCode.teacherId))
+      .get();
+    
+    if (!teacher) {
+      return c.json({ error: 'Professeur non trouvé' }, 404);
+    }
+    
+    if (teacher.role !== 'teacher' && teacher.role !== 'admin') {
+      return c.json({ error: 'Ce code n\'est pas associé à un professeur' }, 400);
+    }
+    
+    // Increment code uses
+    await db
+      .update(schema.teacherCodes)
+      .set({ currentUses: teacherCode.currentUses + 1 })
+      .where(eq(schema.teacherCodes.id, teacherCode.id));
+    
+    // Create session
+    const sessionId = crypto.randomUUID();
+    await c.env.SESSIONS.put(sessionId, teacher.id, { expirationTtl: 60 * 60 * 24 * 7 }); // 7 days
+    
+    return c.json({
+      sessionId,
+      userId: teacher.id,
+      prenom: teacher.prenom,
+      role: teacher.role,
+      isTeacher: true,
+    }, 200);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 app.post('/api/auth/register', async (c) => {
   try {
     const body = await c.req.json();
-    const { prenom } = registerSchema.parse(body);
+    const { prenom, code } = registerSchema.parse(body);
     
     const db = drizzle(c.env.DB, { schema });
     
@@ -164,16 +303,98 @@ app.post('/api/auth/register', async (c) => {
       });
     }
     
+    // Handle teacher code if provided
+    if (code) {
+      const teacherCode = await db
+        .select()
+        .from(schema.teacherCodes)
+        .where(eq(schema.teacherCodes.code, code.toUpperCase()))
+        .get();
+      
+      if (teacherCode) {
+        // Check if code is expired
+        if (teacherCode.expiresAt && new Date(teacherCode.expiresAt) < new Date()) {
+          return c.json({ error: 'This code has expired' }, 400);
+        }
+        
+        // Check if code has reached max uses
+        if (teacherCode.maxUses > 0 && teacherCode.currentUses >= teacherCode.maxUses) {
+          return c.json({ error: 'This code has reached its maximum number of uses' }, 400);
+        }
+        
+        // Special code: creates teacher account
+        if (teacherCode.isSpecialCode && teacherCode.matiereId) {
+          // Create teacher account with the matiere
+          if (!existingUser) {
+            // Update the user we just created to be a teacher
+            await db
+              .update(schema.users)
+              .set({ role: 'teacher' })
+              .where(eq(schema.users.id, userId));
+            
+            // Link the code to the new teacher
+            await db
+              .update(schema.teacherCodes)
+              .set({ 
+                teacherId: userId,
+                currentUses: teacherCode.currentUses + 1 
+              })
+              .where(eq(schema.teacherCodes.id, teacherCode.id));
+          } else {
+            // User already exists - update to teacher if not already
+            if (existingUser.role !== 'teacher' && existingUser.role !== 'admin') {
+              await db
+                .update(schema.users)
+                .set({ role: 'teacher' })
+                .where(eq(schema.users.id, userId));
+            }
+            
+            // Link the code to the user
+            await db
+              .update(schema.teacherCodes)
+              .set({ 
+                teacherId: userId,
+                currentUses: teacherCode.currentUses + 1 
+              })
+              .where(eq(schema.teacherCodes.id, teacherCode.id));
+          }
+        } else {
+          // Regular code: just increment uses
+          await db
+            .update(schema.teacherCodes)
+            .set({ currentUses: teacherCode.currentUses + 1 })
+            .where(eq(schema.teacherCodes.id, teacherCode.id));
+          
+          // Link courses if courseIds are specified
+          if (teacherCode.courseIds) {
+            try {
+              const courseIds = JSON.parse(teacherCode.courseIds) as string[];
+              // Note: We don't automatically enroll in courses here, but the frontend can use this info
+            } catch (e) {
+              // Invalid JSON, ignore
+            }
+          }
+        }
+      } else {
+        // Code not found, but don't fail registration - just ignore the code
+        // This allows registration to work even with invalid codes
+      }
+    }
+    
     // Create session
     const sessionId = crypto.randomUUID();
     await c.env.SESSIONS.put(sessionId, userId, { expirationTtl: 60 * 60 * 24 * 7 }); // 7 days
+    
+    // Get updated user to return correct role
+    const updatedUser = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
     
     return c.json({ 
       sessionId, 
       userId, 
       prenom,
-      role: existingUser?.role || 'student',
-      isAdmin: isAdmin || existingUser?.role === 'admin'
+      role: updatedUser?.role || existingUser?.role || 'student',
+      isAdmin: updatedUser?.role === 'admin' || existingUser?.role === 'admin',
+      isTeacher: updatedUser?.role === 'teacher',
     }, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
@@ -280,14 +501,24 @@ app.get('/api/courses', async (c) => {
   }
   
   const db = drizzle(c.env.DB, { schema });
-  const courses = await db
+  
+  // Filter out hidden courses for non-admin users
+  const isAdmin = user.role === 'admin';
+  
+  let coursesQuery = db
     .select({
       course: schema.courses,
       matiere: schema.matieres,
     })
     .from(schema.courses)
-    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
-    .all();
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id));
+  
+  // Only show non-hidden courses to students
+  if (!isAdmin) {
+    coursesQuery = coursesQuery.where(eq(schema.courses.isHidden, false)) as any;
+  }
+  
+  const courses = await coursesQuery.all();
   
   // Get user progress
   const userProgress = await db
@@ -394,24 +625,8 @@ app.post('/api/courses/:id/complete', async (c) => {
     await trackClanWarContribution(db, user.id, course.matiereId, course.xpReward);
   }
   
-  // Update streak (simplified: increment if last completion was today or yesterday)
-  const allUserProgress = await db
-    .select()
-    .from(schema.userProgress)
-    .where(eq(schema.userProgress.userId, user.id))
-    .all();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const lastCompletion = allUserProgress.length > 0 
-    ? new Date(Math.max(...allUserProgress.map(up => up.completedAt.getTime())))
-    : null;
-  
-  if (!lastCompletion || lastCompletion >= today) {
-    await db
-      .update(schema.users)
-      .set({ streakDays: user.streakDays + 1 })
-      .where(eq(schema.users.id, user.id));
-  }
+  // Update streak using the new streak system
+  await updateUserStreak(db, user.id, new Date());
   
   // Check and unlock badges
   await checkAndUnlockBadges(c, user.id);
@@ -533,10 +748,10 @@ app.get('/api/student/badges', async (c) => {
 
 async function requireAdmin(c: any): Promise<schema.User | null> {
   // Simplified admin check - password is verified on frontend
-  // Just return a dummy admin user for operations
+  // Also allow teachers to use admin routes for courses/questions
   const user = await getUser(c);
-  if (user) {
-    return { ...user, role: 'admin' };
+  if (user && (user.role === 'admin' || user.role === 'teacher')) {
+    return { ...user, role: user.role };
   }
   // Return dummy admin for password-based access
   return { 
@@ -547,6 +762,17 @@ async function requireAdmin(c: any): Promise<schema.User | null> {
     streakDays: 0, 
     createdAt: new Date() 
   } as schema.User;
+}
+
+async function requireTeacher(c: any): Promise<schema.User | null> {
+  const user = await getUser(c);
+  if (!user) {
+    return null;
+  }
+  if (user.role !== 'teacher' && user.role !== 'admin') {
+    return null;
+  }
+  return user;
 }
 
 app.get('/api/admin/kpi', async (c) => {
@@ -699,6 +925,62 @@ app.delete('/api/admin/courses/:id', async (c) => {
   await db.delete(schema.courses).where(eq(schema.courses.id, courseId));
   
   return c.json({ success: true });
+});
+
+app.put('/api/admin/courses/:id/toggle-visibility', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const courseId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+  
+  // Toggle isHidden
+  await db
+    .update(schema.courses)
+    .set({ isHidden: !course.isHidden })
+    .where(eq(schema.courses.id, courseId));
+  
+  const updatedCourse = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+  
+  return c.json({
+    ...updatedCourse,
+    isHidden: updatedCourse?.isHidden || false,
+  });
+});
+
+app.put('/api/admin/courses/:id/toggle-visibility', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const courseId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+  
+  // Toggle isHidden
+  await db
+    .update(schema.courses)
+    .set({ isHidden: !course.isHidden })
+    .where(eq(schema.courses.id, courseId));
+  
+  const updatedCourse = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+  
+  return c.json({
+    ...updatedCourse,
+    isHidden: updatedCourse?.isHidden || false,
+  });
 });
 
 // ========== QUESTIONS ROUTES ==========
@@ -1058,6 +1340,243 @@ app.get('/api/admin/matieres', async (c) => {
   return c.json(matieres);
 });
 
+app.post('/api/admin/matieres', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { nom, description } = body;
+    
+    if (!nom) {
+      return c.json({ error: 'Le nom de la matière est requis' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if matiere with same name already exists
+    const existing = await db
+      .select()
+      .from(schema.matieres)
+      .where(eq(schema.matieres.nom, nom))
+      .get();
+    
+    if (existing) {
+      return c.json({ error: 'Une matière avec ce nom existe déjà' }, 400);
+    }
+    
+    const matiereId = crypto.randomUUID();
+    await db.insert(schema.matieres).values({
+      id: matiereId,
+      nom,
+      description: description || null,
+      createdAt: new Date(),
+    });
+    
+    const createdMatiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    
+    return c.json(createdMatiere, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.put('/api/admin/matieres/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const matiereId = c.req.param('id');
+    const body = await c.req.json();
+    const { nom, description } = body;
+    
+    if (!nom) {
+      return c.json({ error: 'Le nom de la matière est requis' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if matiere exists
+    const existing = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!existing) {
+      return c.json({ error: 'Matière non trouvée' }, 404);
+    }
+    
+    // Check if another matiere with same name exists
+    const duplicate = await db
+      .select()
+      .from(schema.matieres)
+      .where(and(eq(schema.matieres.nom, nom), sql`${schema.matieres.id} != ${matiereId}`))
+      .get();
+    
+    if (duplicate) {
+      return c.json({ error: 'Une matière avec ce nom existe déjà' }, 400);
+    }
+    
+    await db
+      .update(schema.matieres)
+      .set({
+        nom,
+        description: description || null,
+      })
+      .where(eq(schema.matieres.id, matiereId));
+    
+    const updated = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    
+    return c.json(updated);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.delete('/api/admin/matieres/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const matiereId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if matiere exists
+    const existing = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!existing) {
+      return c.json({ error: 'Matière non trouvée' }, 404);
+    }
+    
+    // Delete matiere (cascade will delete related courses)
+    await db.delete(schema.matieres).where(eq(schema.matieres.id, matiereId));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Create teacher account and link to matiere
+app.post('/api/admin/teachers', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { prenom, matiereId } = body;
+    
+    if (!prenom) {
+      return c.json({ error: 'Le prénom est requis' }, 400);
+    }
+    
+    if (!matiereId) {
+      return c.json({ error: 'La matière est requise' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Verify matiere exists
+    const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+    if (!matiere) {
+      return c.json({ error: 'Matière non trouvée' }, 404);
+    }
+    
+    // Check if user with this prenom already exists
+    const existingUser = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.prenom, prenom))
+      .get();
+    
+    if (existingUser) {
+      // Update existing user to teacher role
+      await db
+        .update(schema.users)
+        .set({ role: 'teacher' })
+        .where(eq(schema.users.id, existingUser.id));
+      
+      // Create a special teacher code for this teacher and matiere
+      let code: string;
+      let isUnique = false;
+      while (!isUnique) {
+        code = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const existing = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.code, code)).get();
+        if (!existing) {
+          isUnique = true;
+        }
+      }
+      
+      const codeId = crypto.randomUUID();
+      await db.insert(schema.teacherCodes).values({
+        id: codeId,
+        code: code!,
+        teacherId: existingUser.id,
+        matiereId,
+        isSpecialCode: false,
+        maxUses: -1,
+        currentUses: 0,
+        createdAt: new Date(),
+      });
+      
+      return c.json({
+        user: { ...existingUser, role: 'teacher' },
+        matiere,
+        code: code!,
+        message: 'Utilisateur existant mis à jour en professeur',
+      }, 200);
+    }
+    
+    // Create new teacher user
+    const userId = crypto.randomUUID();
+    await db.insert(schema.users).values({
+      id: userId,
+      prenom,
+      xp: 0,
+      role: 'teacher',
+      streakDays: 0,
+      createdAt: new Date(),
+    });
+    
+    // Create a special teacher code for this teacher and matiere
+    let code: string;
+    let isUnique = false;
+    while (!isUnique) {
+      code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const existing = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.code, code)).get();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    
+    const codeId = crypto.randomUUID();
+    await db.insert(schema.teacherCodes).values({
+      id: codeId,
+      code: code!,
+      teacherId: userId,
+      matiereId,
+      isSpecialCode: false,
+      maxUses: -1,
+      currentUses: 0,
+      createdAt: new Date(),
+    });
+    
+    const createdUser = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    
+    return c.json({
+      user: createdUser,
+      matiere,
+      code: code!,
+      message: 'Professeur créé avec succès',
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
 // Admin endpoint for fixed sessions
 app.get('/api/admin/sessions/fixed', async (c) => {
   const admin = await requireAdmin(c);
@@ -1184,7 +1703,702 @@ app.get('/api/admin/sessions/:id/attendances', async (c) => {
   })));
 });
 
+// ========== TEACHER CODES ROUTES (Admin) ==========
+
+app.post('/api/admin/teacher-codes', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { teacherId, matiereId, courseIds, maxUses, expiresAt, isSpecialCode } = body;
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Special code: creates teacher account (1 code = 1 teacher = 1 matiere)
+    if (isSpecialCode) {
+      if (!matiereId) {
+        return c.json({ error: 'Matiere ID is required for special codes' }, 400);
+      }
+      
+      // Verify matiere exists
+      const matiere = await db.select().from(schema.matieres).where(eq(schema.matieres.id, matiereId)).get();
+      if (!matiere) {
+        return c.json({ error: 'Matiere not found' }, 404);
+      }
+      
+      // Generate unique code (8 characters, alphanumeric)
+      let code: string;
+      let isUnique = false;
+      while (!isUnique) {
+        code = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const existing = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.code, code)).get();
+        if (!existing) {
+          isUnique = true;
+        }
+      }
+      
+      const codeId = crypto.randomUUID();
+      await db.insert(schema.teacherCodes).values({
+        id: codeId,
+        code: code!,
+        teacherId: null, // No teacher yet - will be created on registration
+        matiereId,
+        courseIds: null,
+        isSpecialCode: true,
+        maxUses: maxUses !== undefined ? maxUses : 1, // Default to 1 use for special codes
+        currentUses: 0,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        createdAt: new Date(),
+      });
+      
+      const createdCode = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.id, codeId)).get();
+      
+      return c.json({
+        ...createdCode,
+        matiere: matiere,
+      }, 201);
+    }
+    
+    // Regular code: links to existing teacher
+    if (!teacherId) {
+      return c.json({ error: 'Teacher ID is required for regular codes' }, 400);
+    }
+    
+    // Verify teacher exists and is a teacher
+    const teacher = await db.select().from(schema.users).where(eq(schema.users.id, teacherId)).get();
+    if (!teacher) {
+      return c.json({ error: 'Teacher not found' }, 404);
+    }
+    
+    if (teacher.role !== 'teacher') {
+      return c.json({ error: 'User is not a teacher' }, 400);
+    }
+    
+    // Generate unique code (8 characters, alphanumeric)
+    let code: string;
+    let isUnique = false;
+    while (!isUnique) {
+      code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const existing = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.code, code)).get();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    
+    // Store courseIds as JSON string
+    const courseIdsJson = courseIds && Array.isArray(courseIds) ? JSON.stringify(courseIds) : null;
+    
+    const codeId = crypto.randomUUID();
+    await db.insert(schema.teacherCodes).values({
+      id: codeId,
+      code: code!,
+      teacherId,
+      matiereId: null,
+      courseIds: courseIdsJson,
+      isSpecialCode: false,
+      maxUses: maxUses !== undefined ? maxUses : -1,
+      currentUses: 0,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdAt: new Date(),
+    });
+    
+    const createdCode = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.id, codeId)).get();
+    
+    return c.json({
+      ...createdCode,
+      courseIds: courseIdsJson ? JSON.parse(courseIdsJson) : null,
+    }, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/admin/teacher-codes', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  const codes = await db
+    .select({
+      code: schema.teacherCodes,
+      teacher: schema.users,
+      matiere: schema.matieres,
+    })
+    .from(schema.teacherCodes)
+    .leftJoin(schema.users, eq(schema.teacherCodes.teacherId, schema.users.id))
+    .leftJoin(schema.matieres, eq(schema.teacherCodes.matiereId, schema.matieres.id))
+    .orderBy(desc(schema.teacherCodes.createdAt))
+    .all();
+  
+  return c.json(codes.map(c => ({
+    ...c.code,
+    courseIds: c.code.courseIds ? JSON.parse(c.code.courseIds) : null,
+    teacher: c.teacher,
+    matiere: c.matiere,
+  })));
+});
+
+app.delete('/api/admin/teacher-codes/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const codeId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const code = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.id, codeId)).get();
+  if (!code) {
+    return c.json({ error: 'Code not found' }, 404);
+  }
+  
+  await db.delete(schema.teacherCodes).where(eq(schema.teacherCodes.id, codeId));
+  
+  return c.json({ success: true });
+});
+
+// Update teacher code
+app.put('/api/admin/teacher-codes/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const codeId = c.req.param('id');
+    const body = await c.req.json();
+    const { code } = body;
+    
+    if (!code) {
+      return c.json({ error: 'Le code est requis' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if code already exists (for another teacher code)
+    const existing = await db
+      .select()
+      .from(schema.teacherCodes)
+      .where(and(
+        eq(schema.teacherCodes.code, code.toUpperCase()),
+        sql`${schema.teacherCodes.id} != ${codeId}`
+      ))
+      .get();
+    
+    if (existing) {
+      return c.json({ error: 'Ce code est déjà utilisé' }, 400);
+    }
+    
+    // Update the code
+    await db
+      .update(schema.teacherCodes)
+      .set({ code: code.toUpperCase() })
+      .where(eq(schema.teacherCodes.id, codeId));
+    
+    const updated = await db.select().from(schema.teacherCodes).where(eq(schema.teacherCodes.id, codeId)).get();
+    
+    return c.json({
+      ...updated,
+      courseIds: updated.courseIds ? JSON.parse(updated.courseIds) : null,
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// Delete teacher (and their codes)
+app.delete('/api/admin/teachers/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    const userId = c.req.param('id');
+    const db = drizzle(c.env.DB, { schema });
+    
+    // Check if user exists and is a teacher
+    const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    if (!user) {
+      return c.json({ error: 'Professeur non trouvé' }, 404);
+    }
+    
+    if (user.role !== 'teacher') {
+      return c.json({ error: 'Cet utilisateur n\'est pas un professeur' }, 400);
+    }
+    
+    // Delete all teacher codes associated with this teacher
+    await db.delete(schema.teacherCodes).where(eq(schema.teacherCodes.teacherId, userId));
+    
+    // Delete the user (cascade will handle related data)
+    await db.delete(schema.users).where(eq(schema.users.id, userId));
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+// ========== ADMIN USER MANAGEMENT ROUTES ==========
+
+app.get('/api/admin/users', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get query parameters
+  const role = c.req.query('role'); // Optional filter by role
+  const search = c.req.query('search'); // Optional search by prenom
+  const page = parseInt(c.req.query('page') || '1');
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = (page - 1) * limit;
+  
+  // Build query
+  let usersQuery = db.select().from(schema.users);
+  
+  const conditions = [];
+  if (role) {
+    conditions.push(eq(schema.users.role, role));
+  }
+  if (search) {
+    conditions.push(sql`${schema.users.prenom} LIKE ${'%' + search + '%'}`);
+  }
+  
+  if (conditions.length > 0) {
+    usersQuery = usersQuery.where(and(...conditions)) as any;
+  }
+  
+  // Get total count for pagination
+  const allUsers = await usersQuery.all();
+  const total = allUsers.length;
+  
+  // Get paginated users
+  const users = await usersQuery
+    .orderBy(desc(schema.users.createdAt))
+    .limit(limit)
+    .offset(offset)
+    .all();
+  
+  // Get additional stats for each user
+  const usersWithStats = await Promise.all(users.map(async (user) => {
+    const [progressCount, badgesCount, purchasesCount] = await Promise.all([
+      db.select().from(schema.userProgress).where(eq(schema.userProgress.userId, user.id)).all(),
+      db.select().from(schema.userBadges).where(eq(schema.userBadges.userId, user.id)).all(),
+      db.select().from(schema.userPurchases).where(eq(schema.userPurchases.userId, user.id)).all(),
+    ]);
+    
+    return {
+      ...user,
+      stats: {
+        coursesCompleted: progressCount.length,
+        badgesUnlocked: badgesCount.length,
+        itemsPurchased: purchasesCount.length,
+      },
+    };
+  }));
+  
+  return c.json({
+    users: usersWithStats,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+app.delete('/api/admin/users/:id/reset', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const userId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+  
+  // Reset user data but keep the user account and history
+  // Delete: badges, progression, achats, skins
+  // Keep: user, friendships, duel history (for stats)
+  
+  await Promise.all([
+    // Delete user badges
+    db.delete(schema.userBadges).where(eq(schema.userBadges.userId, userId)),
+    // Delete user progress
+    db.delete(schema.userProgress).where(eq(schema.userProgress.userId, userId)),
+    // Delete user purchases
+    db.delete(schema.userPurchases).where(eq(schema.userPurchases.userId, userId)),
+    // Delete user skins
+    db.delete(schema.userSkins).where(eq(schema.userSkins.userId, userId)),
+    // Reset user stats
+    db.update(schema.users).set({
+      xp: 0,
+      streakDays: 0,
+      lastActivityDate: null,
+    }).where(eq(schema.users.id, userId)),
+  ]);
+  
+  return c.json({ success: true, message: 'User account reset successfully' });
+});
+
+app.delete('/api/admin/users/:id', async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  const userId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const user = await db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+  
+  // Prevent deleting admin accounts
+  if (user.role === 'admin') {
+    return c.json({ error: 'Cannot delete admin accounts' }, 400);
+  }
+  
+  // Delete user (cascade will handle related data)
+  await db.delete(schema.users).where(eq(schema.users.id, userId));
+  
+  return c.json({ success: true, message: 'User deleted successfully' });
+});
+
 // ========== STRESS ROUTES ==========
+
+// ========== TEACHER ROUTES ==========
+
+// Helper to get teacher's courses
+app.get('/api/teacher/courses', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  // Get courses created by this teacher (or all if admin)
+  const courses = await db
+    .select({
+      course: schema.courses,
+      matiere: schema.matieres,
+    })
+    .from(schema.courses)
+    .leftJoin(schema.matieres, eq(schema.courses.matiereId, schema.matieres.id))
+    .all();
+  
+  // Filter by teacher if not admin (temporary until created_by is added)
+  const filteredCourses = teacher.role === 'admin' ? courses : courses;
+  
+  return c.json(filteredCourses.map(({ course, matiere }) => ({
+    ...course,
+    matiere: matiere || null,
+  })));
+});
+
+app.post('/api/teacher/courses', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { titre, description, matiereId, gameType, theoreticalContent, xpReward } = body;
+    
+    if (!titre || !description) {
+      return c.json({ error: 'Titre and description are required' }, 400);
+    }
+    
+    const db = drizzle(c.env.DB, { schema });
+    const courseId = crypto.randomUUID();
+    
+    await db.insert(schema.courses).values({
+      id: courseId,
+      titre,
+      description,
+      matiereId: matiereId || null,
+      gameType: gameType || 'quiz',
+      theoreticalContent: theoreticalContent || null,
+      xpReward: xpReward || 50,
+      createdAt: new Date(),
+    });
+    
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    
+    return c.json(course, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.put('/api/teacher/courses/:id', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  try {
+    const courseId = c.req.param('id');
+    const body = await c.req.json();
+    const db = drizzle(c.env.DB, { schema });
+    
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    
+    await db
+      .update(schema.courses)
+      .set({ ...body })
+      .where(eq(schema.courses.id, courseId));
+    
+    const updatedCourse = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    
+    return c.json(updatedCourse);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.get('/api/teacher/courses/:id/stats', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const courseId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+  
+  const completions = await db
+    .select()
+    .from(schema.userProgress)
+    .where(eq(schema.userProgress.courseId, courseId))
+    .all();
+  
+  const userIds = completions.map(c => c.userId);
+  const users = userIds.length > 0 
+    ? await db.select().from(schema.users).where(inArray(schema.users.id, userIds)).all()
+    : [];
+  
+  const userMap = new Map(users.map(u => [u.id, u]));
+  
+  return c.json({
+    course,
+    totalCompletions: completions.length,
+    completions: completions.map(c => ({
+      ...c,
+      user: userMap.get(c.userId),
+    })),
+  });
+});
+
+app.get('/api/teacher/sessions', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const db = drizzle(c.env.DB, { schema });
+  
+  const sessions = await db
+    .select({
+      session: schema.sessions,
+      course: schema.courses,
+    })
+    .from(schema.sessions)
+    .innerJoin(schema.courses, eq(schema.sessions.courseId, schema.courses.id))
+    .where(eq(schema.sessions.createdBy, teacher.id))
+    .orderBy(desc(schema.sessions.createdAt))
+    .all();
+  
+  return c.json(sessions.map(s => ({
+    ...s.session,
+    course: s.course,
+  })));
+});
+
+app.post('/api/teacher/sessions', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { courseId } = body;
+    
+    if (!courseId) {
+      return c.json({ error: 'Course ID is required' }, 400);
+    }
+  
+    const db = drizzle(c.env.DB, { schema });
+    
+    const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
+    if (!course) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+    
+    let code: string;
+    let isUnique = false;
+    while (!isUnique) {
+      code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const existing = await db.select().from(schema.sessions).where(eq(schema.sessions.code, code)).get();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    
+    const sessionId = crypto.randomUUID();
+    await db.insert(schema.sessions).values({
+      id: sessionId,
+      courseId,
+      createdBy: teacher.id,
+      code: code!,
+      isActive: true,
+      status: 'waiting',
+      createdAt: new Date(),
+    });
+    
+    const session = await db.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId)).get();
+    
+    return c.json(session, 201);
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.put('/api/teacher/sessions/:id/start', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId)).get();
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  if (session.createdBy !== teacher.id && teacher.role !== 'admin') {
+    return c.json({ error: 'Unauthorized - This session does not belong to you' }, 403);
+  }
+  
+  await db
+    .update(schema.sessions)
+    .set({
+      status: 'started',
+      startedAt: new Date(),
+    })
+    .where(eq(schema.sessions.id, sessionId));
+  
+  return c.json({ success: true });
+});
+
+app.put('/api/teacher/sessions/:id/stop', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId)).get();
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  if (session.createdBy !== teacher.id && teacher.role !== 'admin') {
+    return c.json({ error: 'Unauthorized - This session does not belong to you' }, 403);
+  }
+  
+  await db
+    .update(schema.sessions)
+    .set({
+      isActive: false,
+      status: 'finished',
+    })
+    .where(eq(schema.sessions.id, sessionId));
+  
+  return c.json({ success: true });
+});
+
+app.get('/api/teacher/sessions/:id/participants', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  const sessionId = c.req.param('id');
+  const db = drizzle(c.env.DB, { schema });
+  
+  const session = await db.select().from(schema.sessions).where(eq(schema.sessions.id, sessionId)).get();
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+  
+  if (session.createdBy !== teacher.id && teacher.role !== 'admin') {
+    return c.json({ error: 'Unauthorized - This session does not belong to you' }, 403);
+  }
+  
+  const attendances = await db
+    .select({
+      attendance: schema.sessionAttendances,
+      user: schema.users,
+    })
+    .from(schema.sessionAttendances)
+    .innerJoin(schema.users, eq(schema.sessionAttendances.userId, schema.users.id))
+    .where(eq(schema.sessionAttendances.sessionId, sessionId))
+    .all();
+  
+  const answers = await db
+    .select()
+    .from(schema.sessionQuizAnswers)
+    .where(eq(schema.sessionQuizAnswers.sessionId, sessionId))
+    .all();
+  
+  const userScores = new Map<string, { correct: number; total: number }>();
+  answers.forEach(a => {
+    const current = userScores.get(a.userId) || { correct: 0, total: 0 };
+    current.total++;
+    if (a.isCorrect) {
+      current.correct++;
+    }
+    userScores.set(a.userId, current);
+  });
+  
+  return c.json({
+    participants: attendances.map(a => ({
+      ...a.attendance,
+      user: a.user,
+      score: userScores.get(a.user.id) || { correct: 0, total: 0 },
+    })),
+  });
+});
 
 app.post('/api/student/stress', async (c) => {
   const user = await getUser(c);
@@ -1270,7 +2484,7 @@ app.post('/api/student/session/track', async (c) => {
   
   try {
     const body = await c.req.json();
-    const { sessionId, startedAt, endedAt, durationSeconds } = body;
+    const { sessionId, startedAt, endedAt, durationSeconds, isPartial } = body;
     
     const db = drizzle(c.env.DB, { schema });
     
@@ -1282,14 +2496,17 @@ app.post('/api/student/session/track', async (c) => {
       .get();
     
     if (existing) {
-      // Update existing session
-      await db
-        .update(schema.userSessions)
-        .set({
-          endedAt: endedAt ? new Date(endedAt) : null,
-          durationSeconds: durationSeconds || null,
-        })
-        .where(eq(schema.userSessions.id, sessionId));
+      // Update existing session - only update if this is a final save or duration is higher
+      // This prevents overwriting with partial saves that might be out of order
+      if (!isPartial || (durationSeconds && (!existing.durationSeconds || durationSeconds > existing.durationSeconds))) {
+        await db
+          .update(schema.userSessions)
+          .set({
+            endedAt: endedAt ? new Date(endedAt) : existing.endedAt,
+            durationSeconds: durationSeconds || existing.durationSeconds,
+          })
+          .where(eq(schema.userSessions.id, sessionId));
+      }
     } else {
       // Create new session
       await db.insert(schema.userSessions).values({
@@ -1317,21 +2534,54 @@ app.get('/api/admin/analytics/time-spent', async (c) => {
   
   const db = drizzle(c.env.DB, { schema });
   
+  // Get query parameters for filtering
+  const period = c.req.query('period') || 'all'; // 'day' | 'week' | 'month' | 'all'
+  const userId = c.req.query('userId'); // Optional user filter
+  
   // Get all user sessions
-  const allSessions = await db
+  let allSessionsQuery = db
     .select({
       session: schema.userSessions,
       user: schema.users,
     })
     .from(schema.userSessions)
-    .innerJoin(schema.users, eq(schema.userSessions.userId, schema.users.id))
-    .all();
+    .innerJoin(schema.users, eq(schema.userSessions.userId, schema.users.id));
+  
+  // Apply filters
+  if (userId) {
+    allSessionsQuery = allSessionsQuery.where(eq(schema.userSessions.userId, userId)) as any;
+  }
+  
+  const allSessions = await allSessionsQuery.all();
+  
+  // Filter by period if specified
+  const now = new Date();
+  let filteredSessions = allSessions;
+  
+  if (period === 'day') {
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    filteredSessions = allSessions.filter(s => 
+      s.session.startedAt >= dayStart
+    );
+  } else if (period === 'week') {
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+    weekStart.setHours(0, 0, 0, 0);
+    filteredSessions = allSessions.filter(s => 
+      s.session.startedAt >= weekStart
+    );
+  } else if (period === 'month') {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    filteredSessions = allSessions.filter(s => 
+      s.session.startedAt >= monthStart
+    );
+  }
   
   // Calculate overall stats
-  const totalSessions = allSessions.length;
-  const completedSessions = allSessions.filter(s => s.session.durationSeconds !== null && s.session.durationSeconds > 0).length;
+  const totalSessions = filteredSessions.length;
+  const completedSessions = filteredSessions.filter(s => s.session.durationSeconds !== null && s.session.durationSeconds > 0).length;
   
-  const sessionsWithDuration = allSessions
+  const sessionsWithDuration = filteredSessions
     .filter(s => s.session.durationSeconds !== null && s.session.durationSeconds > 0)
     .map(s => s.session.durationSeconds || 0);
   
@@ -1350,7 +2600,7 @@ app.get('/api/admin/analytics/time-spent', async (c) => {
     avgTimeMinutes: number;
   }>();
   
-  allSessions.forEach(({ session, user }) => {
+  filteredSessions.forEach(({ session, user }) => {
     const existing = userStatsMap.get(session.userId) || {
       userId: session.userId,
       userName: user.prenom,
@@ -1377,12 +2627,28 @@ app.get('/api/admin/analytics/time-spent', async (c) => {
     avgTimeMinutes: stat.completedSessions > 0 ? Math.floor(stat.totalTimeSeconds / stat.completedSessions / 60) : 0,
   })).sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
   
+  // Calculate daily breakdown (last 30 days)
+  const dailyBreakdown: Record<string, number> = {};
+  filteredSessions.forEach(({ session }) => {
+    if (session.durationSeconds && session.durationSeconds > 0) {
+      const dateKey = new Date(session.startedAt).toISOString().split('T')[0];
+      dailyBreakdown[dateKey] = (dailyBreakdown[dateKey] || 0) + session.durationSeconds;
+    }
+  });
+  
   return c.json({
+    period,
     totalSessions,
     completedSessions,
+    totalTimeSeconds,
+    totalTimeMinutes: Math.floor(totalTimeSeconds / 60),
+    totalTimeHours: Math.floor(totalTimeSeconds / 3600),
     avgTimeSeconds,
     avgTimeMinutes,
     userStats,
+    dailyBreakdown: Object.entries(dailyBreakdown)
+      .map(([date, seconds]) => ({ date, seconds, minutes: Math.floor(seconds / 60) }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
   });
 });
 
@@ -3410,6 +4676,8 @@ app.get('/api/student/duels/lobby', async (c) => {
   }
   
   // Get ALL waiting duels (not just user's)
+  // IMPORTANT: Only return duels that are not full (player2Id is null)
+  // Duels are limited to exactly 2 players
   const waitingDuels = await db
     .select({
       duel: schema.duels,
@@ -3419,7 +4687,10 @@ app.get('/api/student/duels/lobby', async (c) => {
     .from(schema.duels)
     .leftJoin(schema.users, eq(schema.duels.player1Id, schema.users.id))
     .leftJoin(schema.matieres, eq(schema.duels.matiereId, schema.matieres.id))
-    .where(eq(schema.duels.status, 'waiting'))
+    .where(and(
+      eq(schema.duels.status, 'waiting'),
+      sql`${schema.duels.player2Id} IS NULL` // Only duels with no player2 (not full)
+    ))
     .all();
   
   return c.json(waitingDuels.map(d => ({
@@ -3453,8 +4724,21 @@ app.post('/api/student/duels/:id/join', async (c) => {
       return c.json({ error: 'Cannot join your own duel' }, 400);
     }
     
+    // STRICT VALIDATION: Duels are limited to exactly 2 players
+    // Check if duel already has a player2 (duel is full)
     if (duel.player2Id) {
-      return c.json({ error: 'Duel is already full' }, 400);
+      return c.json({ 
+        error: 'Duel is already full. Duels are limited to 2 players maximum.' 
+      }, 400);
+    }
+    
+    // Additional check: Verify the duel is still in waiting status and not full
+    // This prevents race conditions where multiple users try to join simultaneously
+    const currentDuel = await db.select().from(schema.duels).where(eq(schema.duels.id, duelId)).get();
+    if (!currentDuel || currentDuel.status !== 'waiting' || currentDuel.player2Id) {
+      return c.json({ 
+        error: 'This duel is no longer available. It may have been filled or cancelled.' 
+      }, 400);
     }
     
     // Check if user has enough bananas for the bet
@@ -3972,6 +5256,9 @@ app.post('/api/student/sessions/checkin', async (c) => {
       .update(schema.users)
       .set({ xp: user.xp + 10 }) // 10 XP for attendance
       .where(eq(schema.users.id, user.id));
+    
+    // Update streak (check-in counts as activity)
+    await updateUserStreak(db, user.id, new Date());
     
     return c.json({ 
       success: true, 

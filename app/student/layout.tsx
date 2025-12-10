@@ -24,11 +24,17 @@ export default function StudentLayout({
       return;
     }
 
-    // Track session start
+    // Improved session tracking with visibilitychange API
     const sessionStartId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const startTime = Date.now();
+    let totalActiveTime = 0; // Track total active time (excluding background time)
+    let lastActiveTime = startTime; // Last time the tab was active
+    let isActive = !document.hidden; // Current active state
+    
     localStorage.setItem('currentSessionId', sessionStartId);
     localStorage.setItem('sessionStartTime', startTime.toString());
+    localStorage.setItem('lastActiveTime', lastActiveTime.toString());
+    localStorage.setItem('totalActiveTime', '0');
 
     Promise.all([
       getUser(),
@@ -44,12 +50,77 @@ export default function StudentLayout({
       })
       .finally(() => setLoading(false));
 
+    // Handle visibility change (tab goes to background/foreground)
+    const handleVisibilityChange = () => {
+      const now = Date.now();
+      const storedLastActive = parseInt(localStorage.getItem('lastActiveTime') || startTime.toString());
+      const storedTotalActive = parseInt(localStorage.getItem('totalActiveTime') || '0');
+      
+      if (document.hidden) {
+        // Tab went to background - pause tracking
+        if (isActive) {
+          const activeDuration = now - storedLastActive;
+          totalActiveTime = storedTotalActive + activeDuration;
+          localStorage.setItem('totalActiveTime', totalActiveTime.toString());
+          isActive = false;
+        }
+      } else {
+        // Tab came to foreground - resume tracking
+        if (!isActive) {
+          lastActiveTime = now;
+          localStorage.setItem('lastActiveTime', lastActiveTime.toString());
+          isActive = true;
+        }
+      }
+    };
+
+    // Periodic save (every 30 seconds) to avoid losing data
+    const saveInterval = setInterval(async () => {
+      if (!document.hidden && isActive) {
+        const now = Date.now();
+        const storedLastActive = parseInt(localStorage.getItem('lastActiveTime') || startTime.toString());
+        const storedTotalActive = parseInt(localStorage.getItem('totalActiveTime') || '0');
+        const activeDuration = now - storedLastActive;
+        const currentTotal = storedTotalActive + activeDuration;
+        
+        // Save intermediate progress
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/student/session/track`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({
+              sessionId: sessionStartId,
+              startedAt: new Date(startTime),
+              endedAt: new Date(),
+              durationSeconds: Math.round(currentTotal / 1000),
+              isPartial: true, // Indicates this is a partial save
+            }),
+          });
+        } catch (e) {
+          // Ignore errors for periodic saves
+        }
+      }
+    }, 30000); // Every 30 seconds
+
     // Track session end on page unload
     const handleBeforeUnload = async () => {
       const currentSessionId = localStorage.getItem('currentSessionId');
       const sessionStartTime = localStorage.getItem('sessionStartTime');
       if (currentSessionId && sessionStartTime) {
-        const duration = Math.round((Date.now() - parseInt(sessionStartTime)) / 1000);
+        const now = Date.now();
+        const storedLastActive = parseInt(localStorage.getItem('lastActiveTime') || startTime.toString());
+        const storedTotalActive = parseInt(localStorage.getItem('totalActiveTime') || '0');
+        
+        // Add final active time if tab is still active
+        let finalTotal = storedTotalActive;
+        if (!document.hidden && isActive) {
+          finalTotal += now - storedLastActive;
+        }
+        
+        const duration = Math.round(finalTotal / 1000);
         try {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'}/api/student/session/track`, {
             method: 'POST',
@@ -71,8 +142,12 @@ export default function StudentLayout({
       }
     };
 
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
+      clearInterval(saveInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       handleBeforeUnload();
     };
@@ -241,7 +316,7 @@ export default function StudentLayout({
           <h2 className="text-lg font-extrabold text-primary">Gamification</h2>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
+            className="lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
             aria-label="Fermer le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -281,11 +356,11 @@ export default function StudentLayout({
               key={item.href}
               href={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={`
-                flex items-center px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px]
+              className={`touch-manipulation
+                flex items-center px-4 py-3 rounded-lg transition-all duration-200 min-h-[48px] active:scale-[0.98]
                 ${pathname === item.href
                   ? 'bg-primary/10 text-primary font-semibold shadow-sm'
-                  : 'text-text hover:bg-hover hover:scale-[1.02]'
+                  : 'text-text hover:bg-hover active:bg-hover'
                 }
               `}
             >
@@ -319,7 +394,7 @@ export default function StudentLayout({
           {/* Burger Menu Button (Mobile) */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="burger-button lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px]"
+            className="burger-button lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover active:bg-hover min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
             aria-label="Ouvrir le menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
