@@ -22,7 +22,7 @@ app.use('/*', cors({
 // Health check route
 app.get('/', (c) => {
   return c.json({ 
-    message: 'MONCKI API is running',
+    message: 'MONKI API is running',
     version: '1.0.0',
     endpoints: [
       'POST /api/auth/register',

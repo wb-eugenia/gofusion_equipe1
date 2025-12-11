@@ -82,7 +82,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <span className="text-lg sm:text-2xl font-extrabold text-primary">MONCKI</span>
+              <span className="text-lg sm:text-2xl font-extrabold text-primary">MONKI</span>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link
@@ -118,7 +118,7 @@ export default function Home() {
             Apprenez en vous amusant !
           </h1>
           <p className="text-base sm:text-xl md:text-2xl font-medium text-textMuted mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
-            Transformez votre apprentissage en jeu avec notre plateforme MONCKI.
+            Transformez votre apprentissage en jeu avec notre plateforme MONKI.
             Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !
           </p>
           {/* Dashboard Selection */}
@@ -340,7 +340,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-textMuted">
-              © 2024 MONCKI. Tous droits réservés.
+              © 2024 MONKI. Tous droits réservés.
             </p>
           </div>
         </div>

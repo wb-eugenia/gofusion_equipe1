@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "worker:dev": "wrangler dev workers/src/index.ts --local",
+    "worker:dev": "wrangler dev workers/src/index.ts --local --port=8787",
     "worker:deploy": "wrangler deploy workers/src/index.ts",
     "prisma:generate": "drizzle-kit generate",
     "prisma:migrate": "wrangler d1 execute gamification-db --file=./prisma/migrations/schema.sql",
