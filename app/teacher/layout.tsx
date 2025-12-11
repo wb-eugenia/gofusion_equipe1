@@ -5,6 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { getUser } from '@/lib/api';
 
+// Note: generateStaticParams ne peut pas être dans un layout client
+// Il doit être dans chaque page.tsx dynamique
+
 export default function TeacherLayout({
   children,
 }: {
