@@ -566,6 +566,7 @@ export async function createTeacherCourse(data: {
   matiereId?: string;
   gameType?: 'quiz' | 'memory' | 'match';
   theoreticalContent?: string;
+  slideFile?: string;
   xpReward: number;
 }) {
   return apiRequest<any>('/api/teacher/courses', {
@@ -580,10 +581,63 @@ export async function updateTeacherCourse(courseId: string, data: Partial<{
   matiereId?: string;
   gameType?: 'quiz' | 'memory' | 'match';
   theoreticalContent?: string;
+  slideFile?: string;
   xpReward: number;
 }>) {
   return apiRequest<any>(`/api/teacher/courses/${courseId}`, {
     method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// Teacher - Slide Upload and AI Analysis
+export async function uploadSlide(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const sessionId = typeof window !== 'undefined' 
+    ? localStorage.getItem('sessionId') 
+    : null;
+  
+  const headers: Record<string, string> = {};
+  if (sessionId) {
+    headers['Authorization'] = `Bearer ${sessionId}`;
+  }
+  
+  const response = await fetch(`${API_URL}/api/teacher/upload-slide`, {
+    method: 'POST',
+    body: formData,
+    headers,
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+    throw new Error(error.error || 'Upload failed');
+  }
+  
+  return response.json();
+}
+
+export async function analyzeSlideWithAI(data: {
+  slideData: any;
+  courseTitle?: string;
+  courseDescription?: string;
+  numberOfQuestions?: number;
+}) {
+  return apiRequest<{
+    success: boolean;
+    description?: string;
+    theoreticalContent?: string;
+    questions: Array<{
+      question: string;
+      type: string;
+      options: string;
+      correctAnswer: string;
+      order: number;
+    }>;
+    message: string;
+  }>('/api/teacher/analyze-slide', {
+    method: 'POST',
     body: JSON.stringify(data),
   });
 }

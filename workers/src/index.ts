@@ -9,6 +9,9 @@ type Env = {
   DB: D1Database;
   SESSIONS: KVNamespace;
   API_URL?: string;
+  OPENAI_API_KEY?: string;
+  REPLICATE_API_TOKEN?: string;
+  GEMINI_API_KEY?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -2120,7 +2123,7 @@ app.post('/api/teacher/courses', async (c) => {
   
   try {
     const body = await c.req.json();
-    const { titre, description, matiereId, gameType, theoreticalContent, xpReward } = body;
+    const { titre, description, matiereId, gameType, theoreticalContent, slideFile, xpReward } = body;
     
     if (!titre || !description) {
       return c.json({ error: 'Titre and description are required' }, 400);
@@ -2129,7 +2132,8 @@ app.post('/api/teacher/courses', async (c) => {
     const db = drizzle(c.env.DB, { schema });
     const courseId = crypto.randomUUID();
     
-    await db.insert(schema.courses).values({
+    // Build course data
+    const courseData: any = {
       id: courseId,
       titre,
       description,
@@ -2138,7 +2142,37 @@ app.post('/api/teacher/courses', async (c) => {
       theoreticalContent: theoreticalContent || null,
       xpReward: xpReward || 50,
       createdAt: new Date(),
-    });
+    };
+    
+    // Try to insert with slideFile if provided (using raw SQL to avoid schema issues)
+    if (slideFile) {
+      try {
+        // Try to insert with slideFile using raw SQL
+        await c.env.DB.prepare(
+          `INSERT INTO courses (id, titre, description, matiere_id, game_type, theoretical_content, xp_reward, created_at, slide_file) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          courseId,
+          titre,
+          description,
+          matiereId || null,
+          gameType || 'quiz',
+          theoreticalContent || null,
+          xpReward || 50,
+          Math.floor(new Date().getTime() / 1000),
+          slideFile
+        ).run();
+      } catch (error: any) {
+        // If column doesn't exist, insert without slideFile
+        if (error?.message?.includes('slide_file') || error?.message?.includes('no such column')) {
+          await db.insert(schema.courses).values(courseData);
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      await db.insert(schema.courses).values(courseData);
+    }
     
     const course = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
     
@@ -2164,10 +2198,74 @@ app.put('/api/teacher/courses/:id', async (c) => {
       return c.json({ error: 'Course not found' }, 404);
     }
     
-    await db
-      .update(schema.courses)
-      .set({ ...body })
-      .where(eq(schema.courses.id, courseId));
+    // Filter out slideFile if not provided to avoid errors if column doesn't exist
+    const updateData: any = { ...body };
+    const hasSlideFile = updateData.slideFile !== undefined;
+    const slideFileValue = updateData.slideFile;
+    
+    if (!hasSlideFile) {
+      delete updateData.slideFile;
+    }
+    
+    try {
+      if (hasSlideFile) {
+        // Try to update with slideFile using raw SQL
+        try {
+          const setClause: string[] = [];
+          const values: any[] = [];
+          
+          if (updateData.titre !== undefined) {
+            setClause.push('titre = ?');
+            values.push(updateData.titre);
+          }
+          if (updateData.description !== undefined) {
+            setClause.push('description = ?');
+            values.push(updateData.description);
+          }
+          if (updateData.matiereId !== undefined) {
+            setClause.push('matiere_id = ?');
+            values.push(updateData.matiereId || null);
+          }
+          if (updateData.gameType !== undefined) {
+            setClause.push('game_type = ?');
+            values.push(updateData.gameType);
+          }
+          if (updateData.theoreticalContent !== undefined) {
+            setClause.push('theoretical_content = ?');
+            values.push(updateData.theoreticalContent || null);
+          }
+          if (updateData.xpReward !== undefined) {
+            setClause.push('xp_reward = ?');
+            values.push(updateData.xpReward);
+          }
+          setClause.push('slide_file = ?');
+          values.push(slideFileValue || null);
+          values.push(courseId);
+          
+          await c.env.DB.prepare(
+            `UPDATE courses SET ${setClause.join(', ')} WHERE id = ?`
+          ).bind(...values).run();
+        } catch (error: any) {
+          // If column doesn't exist, update without slideFile
+          if (error?.message?.includes('slide_file') || error?.message?.includes('no such column')) {
+            delete updateData.slideFile;
+            await db
+              .update(schema.courses)
+              .set(updateData)
+              .where(eq(schema.courses.id, courseId));
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        await db
+          .update(schema.courses)
+          .set(updateData)
+          .where(eq(schema.courses.id, courseId));
+      }
+    } catch (error: any) {
+      throw error;
+    }
     
     const updatedCourse = await db.select().from(schema.courses).where(eq(schema.courses.id, courseId)).get();
     
@@ -2237,6 +2335,436 @@ app.get('/api/teacher/sessions', async (c) => {
     ...s.session,
     course: s.course,
   })));
+});
+
+// Upload slide file endpoint
+app.post('/api/teacher/upload-slide', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+    
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ error: 'Invalid file type. Allowed: PDF, PPT, PPTX, PNG, JPEG' }, 400);
+    }
+    
+    // Validate file size (max 5MB for base64 conversion to avoid memory issues)
+    const maxSize = 5 * 1024 * 1024; // 5MB (reduced to avoid stack overflow)
+    if (file.size > maxSize) {
+      return c.json({ error: 'File too large. Maximum size is 5MB for PDF analysis' }, 400);
+    }
+    
+    // Read file as base64 for storage (using chunked approach to avoid stack overflow)
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64 in chunks to avoid "Maximum call stack size exceeded"
+    // Use a more efficient method for large files
+    let binaryString = '';
+    const chunkSize = 8192; // Process 8KB at a time
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      // Convert chunk to string safely without using apply
+      for (let j = 0; j < chunk.length; j++) {
+        binaryString += String.fromCharCode(chunk[j]);
+      }
+    }
+    
+    // Convert to base64
+    const base64 = btoa(binaryString);
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const extension = file.name.split('.').pop() || 'pdf';
+    const filename = `slide-${timestamp}.${extension}`;
+    
+    // Store file path (in production, you'd upload to R2 or similar)
+    // For now, we'll return the base64 data and store it in the course
+    const fileData = {
+      filename,
+      type: file.type,
+      size: file.size,
+      base64,
+    };
+    
+    return c.json({
+      success: true,
+      file: fileData,
+      message: 'File uploaded successfully',
+    });
+  } catch (error: any) {
+    return c.json({ error: error.message || 'Upload failed' }, 500);
+  }
+});
+
+// AI analysis endpoint to generate questions from slide
+app.post('/api/teacher/analyze-slide', async (c) => {
+  const teacher = await requireTeacher(c);
+  if (!teacher) {
+    return c.json({ error: 'Unauthorized - Teacher access required' }, 401);
+  }
+  
+  try {
+    const body = await c.req.json();
+    const { slideData, courseTitle, courseDescription, numberOfQuestions = 5 } = body;
+    
+    if (!slideData || !slideData.base64) {
+      return c.json({ error: 'Slide data is required' }, 400);
+    }
+    
+    // Use Replicate only
+    if (!c.env.REPLICATE_API_TOKEN) {
+      return c.json({ 
+        error: 'REPLICATE_API_TOKEN non configuré. Configurez-le dans .dev.vars',
+      }, 500);
+    }
+    
+    // Prepare the prompt
+    const isImage = slideData.type?.startsWith('image/');
+    const isPDF = slideData.type === 'application/pdf';
+    
+    let prompt = '';
+    if (isImage) {
+      // For images, use vision API
+      prompt = `Analyse cette image de slide de cours et génère:
+1. Une description courte et accrocheuse du cours (2-3 phrases)
+2. Un résumé/contenu théorique du cours (200-300 mots)
+3. ${numberOfQuestions} questions variées basées sur le contenu
+
+Titre du cours: ${courseTitle || 'Non spécifié'}
+Description actuelle: ${courseDescription || 'Non spécifiée'}
+
+Génère au format JSON suivant:
+{
+  "description": "Description courte et accrocheuse du cours en 2-3 phrases",
+  "theoreticalContent": "Résumé détaillé du cours avec les concepts principaux...",
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "question": "La question QCM",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correctAnswer": "Option 1"
+    },
+    {
+      "type": "memory_pair",
+      "question": "Concept ou terme à mémoriser",
+      "options": ["Paire 1 - Terme", "Paire 1 - Définition", "Paire 2 - Terme", "Paire 2 - Définition"],
+      "correctAnswer": "Paire 1 - Terme"
+    },
+    {
+      "type": "match_pair",
+      "question": "Associe les éléments",
+      "options": ["Élément A", "Correspondance A", "Élément B", "Correspondance B"],
+      "correctAnswer": "Élément A"
+    }
+  ]
+}
+
+Assure-toi que:
+- Le contenu théorique couvre les concepts principaux du slide
+- Varie les types de questions (QCM, memory pairs, match pairs)
+- Pour memory_pair: crée des paires terme/définition
+- Pour match_pair: crée des associations logiques
+- Les questions sont pertinentes et éducatives
+- Réponds UNIQUEMENT en JSON valide, sans texte supplémentaire`;
+    } else {
+      // For PDF/PPT, extract text first (simplified - in production use a PDF parser)
+      prompt = `Analyse ce document de cours (PDF/PPT) et génère:
+1. Une description courte et accrocheuse du cours (2-3 phrases)
+2. Un résumé/contenu théorique du cours (200-300 mots)
+3. ${numberOfQuestions} questions variées basées sur le contenu
+
+Titre du cours: ${courseTitle || 'Non spécifié'}
+Description actuelle: ${courseDescription || 'Non spécifiée'}
+
+Génère au format JSON suivant:
+{
+  "description": "Description courte et accrocheuse du cours en 2-3 phrases",
+  "theoreticalContent": "Résumé détaillé du cours avec les concepts principaux...",
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "question": "La question QCM",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correctAnswer": "Option 1"
+    },
+    {
+      "type": "memory_pair",
+      "question": "Concept ou terme à mémoriser",
+      "options": ["Paire 1 - Terme", "Paire 1 - Définition", "Paire 2 - Terme", "Paire 2 - Définition"],
+      "correctAnswer": "Paire 1 - Terme"
+    },
+    {
+      "type": "match_pair",
+      "question": "Associe les éléments",
+      "options": ["Élément A", "Correspondance A", "Élément B", "Correspondance B"],
+      "correctAnswer": "Élément A"
+    }
+  ]
+}
+
+Assure-toi que:
+- Le contenu théorique couvre les concepts principaux du document
+- Varie les types de questions (QCM, memory pairs, match pairs)
+- Pour memory_pair: crée des paires terme/définition
+- Pour match_pair: crée des associations logiques
+- Les questions sont pertinentes et éducatives
+- Réponds UNIQUEMENT en JSON valide, sans texte supplémentaire`;
+    }
+    
+    // Use Replicate only
+    let response;
+    
+    if (isImage) {
+      // Use Replicate LLaVA for image analysis
+      // Convert base64 to data URL for Replicate
+      const imageDataUrl = `data:${slideData.type};base64,${slideData.base64}`;
+      
+      // Run LLaVA model with base64 image
+      const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: '2facb4a474a0462c15041b78b1ad70952ea46b5ec6ad29583c0b29dbd3739592', // llava-1.5-13b
+          input: {
+            image: imageDataUrl,
+            prompt: prompt,
+            temperature: 0.7,
+            max_tokens: 2000,
+          }
+        }),
+      });
+      
+      if (!replicateResponse.ok) {
+        throw new Error('Failed to run Replicate model');
+      }
+      
+      const prediction = await replicateResponse.json() as any;
+      
+      // Poll for result
+      let result = prediction;
+      while (result.status === 'starting' || result.status === 'processing') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+          headers: {
+            'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+          },
+        });
+        result = await statusResponse.json() as any;
+      }
+      
+      if (result.status === 'succeeded') {
+        // Create a mock response object with the output
+        response = {
+          ok: true,
+          json: async () => ({
+            candidates: [{
+              content: {
+                parts: [{
+                  text: result.output.join('') || result.output
+                }]
+              }
+            }]
+          })
+        } as Response;
+      } else {
+        throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+      }
+    } else {
+      // Use Replicate Llama for text-based analysis (PDF/PPT)
+      const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: '02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3', // meta/llama-2-70b-chat
+          input: {
+            prompt: `Tu es un assistant qui analyse des documents de cours et génère des questions éducatives. Réponds UNIQUEMENT avec du JSON valide.\n\n${prompt}`,
+            temperature: 0.7,
+            max_length: 2000,
+          }
+        }),
+      });
+      
+      if (!replicateResponse.ok) {
+        throw new Error('Failed to run Replicate model');
+      }
+      
+      const prediction = await replicateResponse.json() as any;
+      
+      // Poll for result
+      let result = prediction;
+      while (result.status === 'starting' || result.status === 'processing') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+          headers: {
+            'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+          },
+        });
+        result = await statusResponse.json() as any;
+      }
+      
+      if (result.status === 'succeeded') {
+        // Create a mock response object with the output
+        response = {
+          ok: true,
+          json: async () => ({
+            candidates: [{
+              content: {
+                parts: [{
+                  text: result.output.join('') || result.output
+                }]
+              }
+            }]
+          })
+        } as Response;
+      } else {
+        throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+      }
+    }
+    
+    if (!response.ok) {
+      let errorMessage = 'AI API error';
+      try {
+        const errorData = await response.json() as any;
+        errorMessage = errorData.error?.message || errorData.error || 'AI API error';
+      } catch {
+        const errorText = await response.text();
+        errorMessage = errorText || 'AI API error';
+      }
+      
+      // Check for quota errors
+      if (errorMessage.includes('quota') || errorMessage.includes('insufficient_quota')) {
+        return c.json({ 
+          error: 'Quota Replicate épuisé. Vérifiez votre solde sur replicate.com',
+          errorCode: 'QUOTA_EXCEEDED',
+        }, 500);
+      }
+      
+      return c.json({ error: `AI API error: ${errorMessage}` }, 500);
+    }
+    
+    const data = await response.json() as any;
+    
+    // Handle Replicate response format
+    let content = '';
+    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      // Replicate response format (normalized)
+      content = data.candidates[0].content.parts[0].text;
+    } else {
+      return c.json({ error: 'Format de réponse Replicate invalide' }, 500);
+    }
+    
+    // Parse the JSON response
+    let parsedData: any;
+    try {
+      // Try to extract JSON object from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch && jsonMatch[0]) {
+        parsedData = JSON.parse(jsonMatch[0]);
+      } else {
+        // If it's already a JSON object, parse it directly
+        parsedData = JSON.parse(content);
+      }
+    } catch (parseError) {
+      // Fallback: try to parse as array
+      try {
+        const arrayMatch = content.match(/\[[\s\S]*\]/);
+        if (arrayMatch && arrayMatch[0]) {
+          parsedData = { questions: JSON.parse(arrayMatch[0]) };
+        } else {
+          return c.json({ error: 'Failed to parse AI response. Please try again.' }, 500);
+        }
+      } catch {
+        return c.json({ error: 'Failed to parse AI response. Please try again.' }, 500);
+      }
+    }
+    
+    // Extract description, theoretical content and questions
+    const description = parsedData.description || '';
+    const theoreticalContent = parsedData.theoreticalContent || parsedData.content || '';
+    let questions = parsedData.questions || [];
+    
+    // If questions is not an array, try to extract it
+    if (!Array.isArray(questions)) {
+      if (Array.isArray(parsedData)) {
+        questions = parsedData;
+      } else {
+        questions = [];
+      }
+    }
+    
+    // Validate and format questions with varied types
+    const formattedQuestions = questions.map((q: any, index: number) => {
+      // Determine question type
+      let questionType = 'multiple_choice';
+      if (q.type === 'memory_pair' || q.type === 'memory') {
+        questionType = 'memory_pair';
+      } else if (q.type === 'match_pair' || q.type === 'match') {
+        questionType = 'match_pair';
+      } else {
+        questionType = 'multiple_choice';
+      }
+      
+      return {
+        question: q.question || '',
+        type: questionType,
+        options: JSON.stringify(Array.isArray(q.options) ? q.options : []),
+        correctAnswer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ''),
+        order: index,
+      };
+    }).filter((q: any) => q.question && q.options);
+    
+    const questionTypesCount = {
+      multiple_choice: formattedQuestions.filter((q: any) => q.type === 'multiple_choice').length,
+      memory_pair: formattedQuestions.filter((q: any) => q.type === 'memory_pair').length,
+      match_pair: formattedQuestions.filter((q: any) => q.type === 'match_pair').length,
+    };
+    
+    const typesSummary = [
+      questionTypesCount.multiple_choice > 0 && `${questionTypesCount.multiple_choice} QCM`,
+      questionTypesCount.memory_pair > 0 && `${questionTypesCount.memory_pair} Memory`,
+      questionTypesCount.match_pair > 0 && `${questionTypesCount.match_pair} Match`,
+    ].filter(Boolean).join(', ');
+    
+    return c.json({
+      success: true,
+      description: description,
+      theoreticalContent: theoreticalContent,
+      questions: formattedQuestions,
+      message: `Généré ${formattedQuestions.length} questions variées (${typesSummary})${theoreticalContent ? ', un contenu théorique' : ''}${description ? ' et une description' : ''}`,
+    });
+  } catch (error: any) {
+    console.error('AI analysis error:', error);
+    // Return a more helpful error message
+    let errorMessage = 'Erreur lors de l\'analyse du slide avec Replicate';
+    if (error?.message?.includes('API key') || error?.message?.includes('not configured') || error?.message?.includes('REPLICATE_API_TOKEN')) {
+      errorMessage = 'REPLICATE_API_TOKEN non configuré. Configurez-le dans .dev.vars';
+    } else if (error?.message?.includes('quota') || error?.message?.includes('insufficient_quota')) {
+      errorMessage = 'Quota Replicate épuisé. Vérifiez votre solde sur replicate.com';
+    } else if (error?.message?.includes('rate limit')) {
+      errorMessage = 'Limite de requêtes Replicate atteinte. Veuillez réessayer plus tard.';
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    return c.json({ error: errorMessage }, 500);
+  }
 });
 
 app.post('/api/teacher/sessions', async (c) => {

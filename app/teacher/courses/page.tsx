@@ -10,6 +10,8 @@ import {
   createAdminQuestion,
   updateAdminQuestion,
   deleteAdminQuestion,
+  uploadSlide,
+  analyzeSlideWithAI,
 } from '@/lib/api';
 import RichTextEditor from '@/components/RichTextEditor';
 import QuestionEditor from '@/components/QuestionEditor';
@@ -33,7 +35,7 @@ export default function TeacherCoursesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
-  const { showError, showConfirm, PopupComponent } = usePopup();
+  const { showError, showSuccess, showConfirm, PopupComponent } = usePopup();
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
@@ -45,6 +47,10 @@ export default function TeacherCoursesPage() {
   const [initialQuestionIds, setInitialQuestionIds] = useState<string[]>([]);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<AdminQuestion | null>(null);
+  const [uploadedSlide, setUploadedSlide] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [slideFile, setSlideFile] = useState<File | null>(null);
+  const [creationMode, setCreationMode] = useState<'upload' | 'manual' | null>(null);
 
   useEffect(() => {
     loadData();
@@ -76,11 +82,20 @@ export default function TeacherCoursesPage() {
     setQuestions([]);
     setInitialQuestionIds([]);
     setEditingCourse(null);
+    setUploadedSlide(null);
+    setSlideFile(null);
+    setCreationMode(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // For upload mode, require slide
+      if (creationMode === 'upload' && !uploadedSlide) {
+        showError('Veuillez uploader un slide pour ce mode de création.');
+        return;
+      }
+      
       if (questions.length === 0) {
         showError('Veuillez ajouter au moins une question pour ce cours.');
         return;
@@ -106,6 +121,7 @@ export default function TeacherCoursesPage() {
         const updatedCourse = await updateTeacherCourse(editingCourse.id, {
           ...formData,
           gameType,
+          slideFile: uploadedSlide?.file?.filename || undefined,
         });
 
         const existingIds = new Set(initialQuestionIds);
@@ -139,6 +155,7 @@ export default function TeacherCoursesPage() {
         const newCourse = await createTeacherCourse({
           ...formData,
           gameType,
+          slideFile: uploadedSlide?.file?.filename || undefined,
         });
 
         for (const q of questions) {
@@ -168,6 +185,10 @@ export default function TeacherCoursesPage() {
       theoreticalContent: course.theoreticalContent || '',
       xpReward: course.xpReward,
     });
+    
+    if (course.slideFile) {
+      setUploadedSlide({ file: { filename: course.slideFile } });
+    }
 
     getAdminCourseQuestions(course.id)
       .then((qs) => {
@@ -187,6 +208,7 @@ export default function TeacherCoursesPage() {
   const openNewCourseModal = () => {
     resetCourseForm();
     setShowModal(true);
+    setCreationMode(null); // Reset mode selection
   };
 
   const handleAddQuestion = () => {
@@ -224,6 +246,116 @@ export default function TeacherCoursesPage() {
     if (!id) return;
     setQuestions(prev => prev.filter(q => q.id !== id));
   };
+
+  const handleSlideUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      showError('Type de fichier non supporté. Formats acceptés: PDF, PPT, PPTX, PNG, JPEG');
+      return;
+    }
+
+    // Validate file size (max 5MB to avoid memory issues)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Fichier trop volumineux. Taille maximum: 5MB');
+      return;
+    }
+
+    setSlideFile(file);
+    setIsAnalyzing(true);
+    
+    try {
+      // Upload the file
+      const result = await uploadSlide(file);
+      setUploadedSlide(result);
+      
+      // Auto-extract title from filename if title is empty
+      if (!formData.titre && file.name) {
+        const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+        setFormData(prev => ({ ...prev, titre: filenameWithoutExt }));
+      }
+      
+      // Automatically analyze the slide
+      await handleAnalyzeSlideAuto(result.file, file.name);
+    } catch (error: any) {
+      showError(error.message || 'Erreur lors de l\'upload du slide');
+      setSlideFile(null);
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeSlideAuto = async (slideData: any, filename?: string) => {
+    if (!slideData || !slideData.base64) {
+      showError('Données du slide invalides');
+      setIsAnalyzing(false);
+      return;
+    }
+
+    const courseTitle = formData.titre || filename?.replace(/\.[^/.]+$/, '') || 'Cours';
+    const courseDescription = formData.description || `Cours basé sur ${filename || 'le slide'}`;
+
+    try {
+      const result = await analyzeSlideWithAI({
+        slideData,
+        courseTitle,
+        courseDescription,
+        numberOfQuestions: 5,
+      });
+
+      // Update description if generated
+      if (result.description && !formData.description) {
+        setFormData(prev => ({ ...prev, description: result.description }));
+      }
+      
+      // Update theoretical content if generated
+      if (result.theoreticalContent) {
+        setFormData(prev => ({ ...prev, theoreticalContent: result.theoreticalContent }));
+      }
+      
+      if (result.questions && result.questions.length > 0) {
+        // Convert AI-generated questions to the format expected by the UI
+        // Keep the type from AI (multiple_choice, memory_pair, match_pair)
+        const formattedQuestions: AdminQuestion[] = result.questions.map((q: any, index: number) => ({
+          question: q.question,
+          type: q.type || 'multiple_choice', // Use the type from AI
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          order: index,
+        }));
+
+        // Set questions (replace if empty, add if not)
+        setQuestions(formattedQuestions);
+        
+        // Update form data if empty
+        if (!formData.titre) {
+          setFormData(prev => ({ ...prev, titre: courseTitle }));
+        }
+        if (!formData.description) {
+          setFormData(prev => ({ ...prev, description: courseDescription }));
+        }
+        
+        const questionTypes = formattedQuestions.map(q => {
+          if (q.type === 'multiple_choice') return 'QCM';
+          if (q.type === 'memory_pair') return 'Memory';
+          if (q.type === 'match_pair') return 'Match';
+          return 'QCM';
+        }).join(', ');
+        
+        showSuccess(`✅ ${result.message}. Types: ${questionTypes}. Contenu théorique généré.`);
+      } else {
+        showError('Aucune question générée. Veuillez réessayer ou créer les questions manuellement.');
+      }
+    } catch (error: any) {
+      console.error('Analyze error:', error);
+      showError(error.message || 'Erreur lors de l\'analyse du slide. Vous pouvez créer les questions manuellement.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -281,12 +413,97 @@ export default function TeacherCoursesPage() {
         </div>
 
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-surface rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-4 text-text">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+            onClick={(e) => {
+              // Close modal when clicking on the backdrop (but not on the modal content)
+              if (e.target === e.currentTarget && !isAnalyzing) {
+                setShowModal(false);
+                resetCourseForm();
+              }
+            }}
+          >
+            <div 
+              className="bg-surface rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  resetCourseForm();
+                }}
+                className="absolute top-4 right-4 text-textMuted hover:text-text transition p-2 hover:bg-hover rounded-full"
+                aria-label="Fermer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h2 className="text-2xl font-bold mb-4 text-text pr-8">
                 {editingCourse ? 'Modifier le cours' : 'Nouveau cours'}
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {!editingCourse && creationMode === null && !isAnalyzing && (
+                <div className="mb-6 p-4 bg-hover rounded-lg">
+                  <p className="text-text font-medium mb-4">Comment souhaitez-vous créer ce cours ?</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          setCreationMode('upload');
+                          if (e.target.files?.[0]) {
+                            handleSlideUpload(e);
+                          }
+                        }}
+                        className="hidden"
+                        id="slide-upload-input"
+                      />
+                      <div className="p-4 border-2 border-primary rounded-lg hover:bg-primary/10 transition text-left">
+                        <div className="text-2xl mb-2">📄</div>
+                        <div className="font-semibold text-text">Uploader un slide</div>
+                        <div className="text-sm text-textMuted mt-1">L'IA analysera automatiquement et créera les questions</div>
+                      </div>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCreationMode('manual')}
+                      className="p-4 border-2 border-border rounded-lg hover:bg-hover transition text-left"
+                    >
+                      <div className="text-2xl mb-2">✏️</div>
+                      <div className="font-semibold text-text">Création manuelle</div>
+                      <div className="text-sm text-textMuted mt-1">Créez le cours et les questions vous-même</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {isAnalyzing && (
+                <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl">🤖</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-text mb-1">Analyse en cours...</h3>
+                      <p className="text-sm text-textMuted">
+                        L'IA analyse votre slide et génère automatiquement les questions. Cela peut prendre quelques secondes.
+                      </p>
+                      <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
+                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {(creationMode !== null || editingCourse) && (
+                <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-text mb-1">
                     Titre *
@@ -330,6 +547,44 @@ export default function TeacherCoursesPage() {
                     ))}
                   </select>
                 </div>
+
+                {creationMode === 'upload' && !isAnalyzing && (
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">
+                      Slide du cours *
+                    </label>
+                    <div className="space-y-2">
+                      <label className="block">
+                        <input
+                          type="file"
+                          accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg"
+                          onChange={handleSlideUpload}
+                          className="hidden"
+                          id="slide-file-input"
+                        />
+                        <div className="w-full px-4 py-3 border-2 border-dashed border-primary rounded-lg hover:bg-primary/5 transition cursor-pointer text-center">
+                          <span className="text-primary font-medium">📄 Cliquez pour changer de fichier</span>
+                          <p className="text-xs text-textMuted mt-1">
+                            {uploadedSlide ? (uploadedSlide.file?.filename || slideFile?.name) : 'Aucun fichier sélectionné'}
+                          </p>
+                        </div>
+                      </label>
+                      {uploadedSlide && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800">
+                            ✅ Slide analysé: {uploadedSlide.file?.filename || slideFile?.name}
+                          </p>
+                          <p className="text-xs text-green-700 mt-1">
+                            {questions.length} question(s) générée(s). Vous pouvez les modifier ci-dessous.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-textMuted mt-1">
+                      Formats acceptés: PDF, PPT, PPTX, PNG, JPEG (max 5MB). L'analyse est automatique.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-text mb-1">
@@ -406,7 +661,8 @@ export default function TeacherCoursesPage() {
                 <div className="flex gap-4 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 bg-primary text-white py-3 rounded-lg hover:bg-primary/90 transition font-bold min-h-[44px]"
+                    disabled={isAnalyzing || (creationMode === 'upload' && !uploadedSlide)}
+                    className="flex-1 bg-primary text-white py-3 rounded-lg hover:bg-primary/90 transition font-bold min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {editingCourse ? 'Enregistrer' : 'Créer'}
                   </button>
@@ -416,12 +672,14 @@ export default function TeacherCoursesPage() {
                       setShowModal(false);
                       resetCourseForm();
                     }}
-                    className="flex-1 bg-border text-text py-3 rounded-lg hover:bg-hover transition font-bold min-h-[44px]"
+                    disabled={isAnalyzing}
+                    className="flex-1 bg-border text-text py-3 rounded-lg hover:bg-hover transition font-bold min-h-[44px] disabled:opacity-50"
                   >
                     Annuler
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>
         )}

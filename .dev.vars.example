@@ -1,0 +1,6 @@
+# Variables d'environnement pour le développement local du Worker Cloudflare
+# Copiez ce fichier en .dev.vars et remplissez vos valeurs
+
+# Clé API OpenAI pour l'analyse de slides
+OPENAI_API_KEY=votre_cle_api_openai_ici
+
