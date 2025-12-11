@@ -2423,10 +2423,15 @@ app.post('/api/teacher/analyze-slide', async (c) => {
       return c.json({ error: 'Slide data is required' }, 400);
     }
     
-    // Use Replicate only
-    if (!c.env.REPLICATE_API_TOKEN) {
+    // Check available AI services (priority: Replicate > OpenAI > Gemini)
+    const hasReplicate = !!c.env.REPLICATE_API_TOKEN;
+    const hasOpenAI = !!c.env.OPENAI_API_KEY;
+    const hasGemini = !!c.env.GEMINI_API_KEY;
+    
+    if (!hasReplicate && !hasOpenAI && !hasGemini) {
       return c.json({ 
-        error: 'REPLICATE_API_TOKEN non configuré. Configurez-le dans .dev.vars',
+        error: 'Aucun service AI configuré. Configurez au moins un de: REPLICATE_API_TOKEN, OPENAI_API_KEY, ou GEMINI_API_KEY dans .dev.vars',
+        alternatives: ['replicate', 'openai', 'gemini']
       }, 500);
     }
     
@@ -2523,120 +2528,239 @@ Assure-toi que:
 - Réponds UNIQUEMENT en JSON valide, sans texte supplémentaire`;
     }
     
-    // Use Replicate only
+    // Use AI services in priority order: Replicate > OpenAI > Gemini
     let response;
     
     if (isImage) {
-      // Use Replicate LLaVA for image analysis
-      // Convert base64 to data URL for Replicate
-      const imageDataUrl = `data:${slideData.type};base64,${slideData.base64}`;
-      
-      // Run LLaVA model with base64 image
-      const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version: '2facb4a474a0462c15041b78b1ad70952ea46b5ec6ad29583c0b29dbd3739592', // llava-1.5-13b
-          input: {
-            image: imageDataUrl,
-            prompt: prompt,
-            temperature: 0.7,
-            max_tokens: 2000,
-          }
-        }),
-      });
-      
-      if (!replicateResponse.ok) {
-        throw new Error('Failed to run Replicate model');
-      }
-      
-      const prediction = await replicateResponse.json() as any;
-      
-      // Poll for result
-      let result = prediction;
-      while (result.status === 'starting' || result.status === 'processing') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+      // For images, try services in priority order
+      if (hasReplicate) {
+        // Use Replicate LLaVA for image analysis
+        const imageDataUrl = `data:${slideData.type};base64,${slideData.base64}`;
+        
+        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+          method: 'POST',
           headers: {
             'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            version: '2facb4a474a0462c15041b78b1ad70952ea46b5ec6ad29583c0b29dbd3739592', // llava-1.5-13b
+            input: {
+              image: imageDataUrl,
+              prompt: prompt,
+              temperature: 0.7,
+              max_tokens: 2000,
+            }
+          }),
         });
-        result = await statusResponse.json() as any;
-      }
-      
-      if (result.status === 'succeeded') {
-        // Create a mock response object with the output
-        response = {
-          ok: true,
-          json: async () => ({
-            candidates: [{
-              content: {
-                parts: [{
-                  text: result.output.join('') || result.output
-                }]
+        
+        if (!replicateResponse.ok) {
+          throw new Error('Failed to run Replicate model');
+        }
+        
+        const prediction = await replicateResponse.json() as any;
+        
+        // Poll for result with proper error handling
+        let result = prediction;
+        while (result.status === 'starting' || result.status === 'processing') {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+            headers: {
+              'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+            },
+          });
+          
+          // Bug 2 fix: Validate response before parsing
+          if (!statusResponse.ok) {
+            throw new Error(`Replicate status check failed: ${statusResponse.status} ${statusResponse.statusText}`);
+          }
+          
+          result = await statusResponse.json() as any;
+        }
+        
+        if (result.status === 'succeeded') {
+          // Bug 3 fix: Handle both array and string outputs
+          const outputText = Array.isArray(result.output) 
+            ? result.output.join('') 
+            : (typeof result.output === 'string' ? result.output : String(result.output || ''));
+          
+          response = {
+            ok: true,
+            json: async () => ({
+              candidates: [{
+                content: {
+                  parts: [{
+                    text: outputText
+                  }]
+                }
+              }]
+            })
+          } as Response;
+        } else {
+          throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+        }
+      } else if (hasOpenAI) {
+        // Use OpenAI GPT-4 Vision
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${c.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:${slideData.type};base64,${slideData.base64}`
+                    }
+                  }
+                ]
               }
-            }]
-          })
-        } as Response;
-      } else {
-        throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+          }),
+        });
+      } else if (hasGemini) {
+        // Use Google Gemini Pro Vision
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${c.env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    mimeType: slideData.type,
+                    data: slideData.base64
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2000,
+            }
+          }),
+        });
       }
     } else {
-      // Use Replicate Llama for text-based analysis (PDF/PPT)
-      const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version: '02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3', // meta/llama-2-70b-chat
-          input: {
-            prompt: `Tu es un assistant qui analyse des documents de cours et génère des questions éducatives. Réponds UNIQUEMENT avec du JSON valide.\n\n${prompt}`,
-            temperature: 0.7,
-            max_length: 2000,
-          }
-        }),
-      });
-      
-      if (!replicateResponse.ok) {
-        throw new Error('Failed to run Replicate model');
-      }
-      
-      const prediction = await replicateResponse.json() as any;
-      
-      // Poll for result
-      let result = prediction;
-      while (result.status === 'starting' || result.status === 'processing') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+      // For PDF/PPT (text-based), try services in priority order
+      if (hasReplicate) {
+        // Use Replicate Llama for text-based analysis
+        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+          method: 'POST',
           headers: {
             'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            version: '02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3', // meta/llama-2-70b-chat
+            input: {
+              prompt: `Tu es un assistant qui analyse des documents de cours et génère des questions éducatives. Réponds UNIQUEMENT avec du JSON valide.\n\n${prompt}`,
+              temperature: 0.7,
+              max_length: 2000,
+            }
+          }),
         });
-        result = await statusResponse.json() as any;
-      }
-      
-      if (result.status === 'succeeded') {
-        // Create a mock response object with the output
-        response = {
-          ok: true,
-          json: async () => ({
-            candidates: [{
-              content: {
-                parts: [{
-                  text: result.output.join('') || result.output
-                }]
+        
+        if (!replicateResponse.ok) {
+          throw new Error('Failed to run Replicate model');
+        }
+        
+        const prediction = await replicateResponse.json() as any;
+        
+        // Poll for result with proper error handling
+        let result = prediction;
+        while (result.status === 'starting' || result.status === 'processing') {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+            headers: {
+              'Authorization': `Token ${c.env.REPLICATE_API_TOKEN}`,
+            },
+          });
+          
+          // Bug 2 fix: Validate response before parsing
+          if (!statusResponse.ok) {
+            throw new Error(`Replicate status check failed: ${statusResponse.status} ${statusResponse.statusText}`);
+          }
+          
+          result = await statusResponse.json() as any;
+        }
+        
+        if (result.status === 'succeeded') {
+          // Bug 3 fix: Handle both array and string outputs
+          const outputText = Array.isArray(result.output) 
+            ? result.output.join('') 
+            : (typeof result.output === 'string' ? result.output : String(result.output || ''));
+          
+          response = {
+            ok: true,
+            json: async () => ({
+              candidates: [{
+                content: {
+                  parts: [{
+                    text: outputText
+                  }]
+                }
+              }]
+            })
+          } as Response;
+        } else {
+          throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+        }
+      } else if (hasOpenAI) {
+        // Use OpenAI GPT-4 for text analysis
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${c.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'user',
+                content: prompt
               }
-            }]
-          })
-        } as Response;
-      } else {
-        throw new Error(`Replicate prediction failed: ${result.error || 'Unknown error'}`);
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+          }),
+        });
+      } else if (hasGemini) {
+        // Use Google Gemini Pro for text analysis
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${c.env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2000,
+            }
+          }),
+        });
       }
+    }
+    
+    // Ensure response is defined
+    if (!response) {
+      return c.json({ error: 'Aucun service AI disponible pour ce type de fichier' }, 500);
     }
     
     if (!response.ok) {
@@ -2662,13 +2786,16 @@ Assure-toi que:
     
     const data = await response.json() as any;
     
-    // Handle Replicate response format
+    // Handle different AI service response formats
     let content = '';
     if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      // Replicate response format (normalized)
+      // Gemini or normalized Replicate response format
       content = data.candidates[0].content.parts[0].text;
+    } else if (data.choices?.[0]?.message?.content) {
+      // OpenAI response format
+      content = data.choices[0].message.content;
     } else {
-      return c.json({ error: 'Format de réponse Replicate invalide' }, 500);
+      return c.json({ error: 'Format de réponse AI invalide' }, 500);
     }
     
     // Parse the JSON response

@@ -25,6 +25,33 @@
   * {
     -webkit-overflow-scrolling: touch;
   }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out;
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s ease-out;
+  }
+  .animate-fade-in-up.delay-200 {
+    animation-delay: 0.2s;
+    animation-fill-mode: both;
+  }
+  .animate-fade-in-up.delay-300 {
+    animation-delay: 0.3s;
+    animation-fill-mode: both;
+  }
+  .animate-fade-in-up.delay-400 {
+    animation-delay: 0.4s;
+    animation-fill-mode: both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.3s ease-out;
+  }
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
 }
 
 :root {
@@ -151,6 +178,22 @@ textarea::placeholder {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 /* Duolingo-style button utilities */

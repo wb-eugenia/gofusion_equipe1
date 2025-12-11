@@ -24,7 +24,7 @@ export const courses = sqliteTable('courses', {
   matiereId: text('matiere_id').references(() => matieres.id, { onDelete: 'cascade' }),
   gameType: text('game_type').notNull().default('quiz'), // 'quiz' | 'memory' | 'match'
   theoreticalContent: text('theoretical_content'), // Contenu théorique WYSIWYG
-  // slideFile: text('slide_file'), // Path to uploaded slide file - Temporarily commented until migration is run
+  slideFile: text('slide_file'), // Path to uploaded slide file (PDF, PPT, images)
   xpReward: integer('xp_reward').default(50).notNull(),
   isHidden: integer('is_hidden', { mode: 'boolean' }).default(false).notNull(), // Hide course without deleting
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),

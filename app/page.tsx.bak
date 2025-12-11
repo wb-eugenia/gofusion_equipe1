@@ -113,7 +113,6 @@ function HomePage() {
   };
 
   return (
-    <>
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Header */}
       <header className={`bg-surface shadow-card sticky top-0 z-50 transition-all duration-300 ${scrollY > 50 ? 'shadow-lift' : ''}`}>
@@ -674,7 +673,6 @@ function HomePage() {
         </div>
       )}
     </div>
-    </>
   );
 }
 

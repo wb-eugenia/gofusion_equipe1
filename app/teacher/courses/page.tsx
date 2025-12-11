@@ -283,6 +283,7 @@ export default function TeacherCoursesPage() {
     } catch (error: any) {
       showError(error.message || 'Erreur lors de l\'upload du slide');
       setSlideFile(null);
+      setUploadedSlide(null); // Bug 5 fix: Reset uploadedSlide on error
       setIsAnalyzing(false);
     }
   };
