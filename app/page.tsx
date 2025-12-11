@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { register, teacherLogin } from '@/lib/api';
 import Link from 'next/link';
+import { Building, GraduationCap, Trophy } from 'lucide-react';
 
 export default function Home() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -15,6 +16,9 @@ export default function Home() {
   const [teacherLoading, setTeacherLoading] = useState(false);
   const [error, setError] = useState('');
   const [teacherError, setTeacherError] = useState('');
+  const [demoEmail, setDemoEmail] = useState('');
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoSuccess, setDemoSuccess] = useState(false);
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -75,6 +79,38 @@ export default function Home() {
     }
   };
 
+  const handleDemoRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDemoLoading(true);
+    setDemoSuccess(false);
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(demoEmail)) {
+      setDemoLoading(false);
+      return;
+    }
+
+    try {
+      // Open email client with pre-filled template
+      const subject = encodeURIComponent('Demande de démo MONKI');
+      const body = encodeURIComponent(`Bonjour,\n\nJe souhaite obtenir une démonstration de la plateforme MONKI pour mon établissement.\n\nEmail: ${demoEmail}\n\nCordialement`);
+      window.location.href = `mailto:contact@monki.fr?subject=${subject}&body=${body}`;
+      
+      setDemoSuccess(true);
+      setDemoEmail('');
+      
+      // Reset success message after 5 seconds
+      setTimeout(() => {
+        setDemoSuccess(false);
+      }, 5000);
+    } catch (err) {
+      console.error('Error opening email client:', err);
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -115,83 +151,147 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center">
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-text mb-4 sm:mb-6">
-            Apprenez en vous amusant !
+            Réconciliez enfin l'école et le plaisir d'apprendre.
           </h1>
-          <p className="text-base sm:text-xl md:text-2xl font-medium text-textMuted mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
-            Transformez votre apprentissage en jeu avec notre plateforme MONKI.
-            Gagnez des 🍌 bananes, débloquez des badges et montez dans le classement !
+          <p className="text-base sm:text-xl md:text-2xl font-medium text-textMuted mb-8 sm:mb-12 max-w-3xl mx-auto px-4">
+            La plateforme qui aide les Écoles à fidéliser, donne des super-pouvoirs aux Profs, et rend les Étudiants accros à leurs cours.
           </p>
-          {/* Dashboard Selection */}
-          <div className="max-w-4xl mx-auto mb-8 sm:mb-12">
-            <h2 className="text-xl sm:text-2xl font-bold text-text mb-6 text-center">
-              Choisissez votre espace
+          
+          {/* Demo Request Form */}
+          <form onSubmit={handleDemoRequest} className="max-w-md mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <input
+                type="email"
+                value={demoEmail}
+                onChange={(e) => setDemoEmail(e.target.value)}
+                placeholder="Votre email professionnel"
+                required
+                className="flex-1 px-4 sm:px-6 py-3 sm:py-4 border-2 border-border rounded-2xl focus:border-primary focus:outline-none transition text-text bg-surface min-h-[56px] font-medium text-base sm:text-lg"
+              />
+              <button
+                type="submit"
+                disabled={demoLoading}
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-primary text-white rounded-2xl font-bold text-base sm:text-lg hover:brightness-105 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px] flex items-center justify-center gap-2"
+                style={!demoLoading ? { boxShadow: '0 5px 0 0 rgba(157, 95, 47, 1)', borderBottom: '5px solid rgba(157, 95, 47, 1)' } : {}}
+              >
+                {demoLoading ? 'Envoi...' : (
+                  <>
+                    Demander une démo école 🎓
+                  </>
+                )}
+              </button>
+            </div>
+            {demoSuccess && (
+              <div className="mt-4 px-4 py-3 bg-green-50 border-2 border-green-200 text-green-700 rounded-2xl font-medium">
+                Merci ! Votre client email va s'ouvrir pour envoyer votre demande.
+              </div>
+            )}
+          </form>
+        </div>
+      </section>
+
+      {/* Pour qui ? Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+        <h2 className="text-2xl sm:text-4xl font-black text-center text-text mb-8 sm:mb-12">
+          Pour qui ?
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+          {/* Carte 1 - Pour l'École */}
+          <div className="bg-surface rounded-2xl shadow-card p-8 hover:shadow-lift hover:scale-[1.02] transition-all duration-200 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Building className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-4">
+              Pour l'École
+            </h3>
+            <p className="text-textMuted text-base">
+              Boostez votre taux de rétention et modernisez votre image de marque.
+            </p>
+          </div>
+
+          {/* Carte 2 - Pour les Profs */}
+          <div className="bg-surface rounded-2xl shadow-card p-8 hover:shadow-lift hover:scale-[1.02] transition-all duration-200 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                <GraduationCap className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-4">
+              Pour les Profs
+            </h3>
+            <p className="text-textMuted text-base">
+              Des outils simples pour transformer n'importe quel cours en expérience interactive.
+            </p>
+          </div>
+
+          {/* Carte 3 - Pour les Étudiants */}
+          <div className="bg-surface rounded-2xl shadow-card p-8 hover:shadow-lift hover:scale-[1.02] transition-all duration-200 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center">
+                <Trophy className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-4">
+              Pour les Étudiants
+            </h3>
+            <p className="text-textMuted text-base">
+              Apprendre devient un jeu. Classements, récompenses et motivation garantie.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Preuve Sociale Section */}
+      <section className="bg-surface py-12 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Logos Partenaires */}
+          <div className="mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl font-black text-center text-text mb-8 sm:mb-12">
+              Ils transforment l'éducation
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 px-4">
-              {/* Admin Dashboard */}
-              <Link
-                href="/admin"
-                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center"
-              >
-                <div className="text-5xl sm:text-6xl mb-4">👨‍💼</div>
-                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-primary transition">
-                  Admin
-                </h3>
-                <p className="text-textMuted text-sm sm:text-base mb-4">
-                  Gérez les cours, sessions, badges et utilisateurs
-                </p>
-                <span className="px-4 sm:px-6 py-2 sm:py-3 bg-textMuted text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full pointer-events-none">
-                  Accéder au dashboard
-                </span>
-              </Link>
-
-              {/* Teacher Dashboard */}
-              <button
-                onClick={() => setShowTeacherModal(true)}
-                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center w-full"
-              >
-                <div className="text-5xl sm:text-6xl mb-4">👨‍🏫</div>
-                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-blue-600 transition">
-                  Professeur
-                </h3>
-                <p className="text-textMuted text-sm sm:text-base mb-4">
-                  Créez des cours, gérez les sessions et consultez les analytics
-                </p>
-                <span className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full">
-                  Accéder au dashboard
-                </span>
-              </button>
-
-              {/* Student Dashboard */}
-              <button
-                onClick={() => setShowRegisterModal(true)}
-                className="bg-surface rounded-2xl shadow-card p-6 sm:p-8 hover:shadow-lift hover:-translate-y-1 transition-all duration-200 text-center group cursor-pointer min-h-[200px] sm:min-h-[240px] flex flex-col justify-center items-center"
-              >
-                <div className="text-5xl sm:text-6xl mb-4">👨‍🎓</div>
-                <h3 className="text-xl sm:text-2xl font-extrabold text-text mb-3 group-hover:text-primary transition">
-                  Étudiant
-                </h3>
-                <p className="text-textMuted text-sm sm:text-base mb-4">
-                  Apprenez, gagnez des bananes et débloquez des badges
-                </p>
-                <div className="px-4 sm:px-6 py-2 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm sm:text-base hover:brightness-105 transition min-h-[48px] flex items-center justify-center w-full">
-                  Créer un compte
-                </div>
-              </button>
+            <div className="flex flex-wrap justify-center items-center gap-8 sm:gap-12 opacity-60">
+              <div className="text-2xl sm:text-3xl font-bold text-textMuted">Lycée Victor Hugo</div>
+              <div className="text-2xl sm:text-3xl font-bold text-textMuted">Collège Marie Curie</div>
+              <div className="text-2xl sm:text-3xl font-bold text-textMuted">École Primaire Jean Jaurès</div>
+              <div className="text-2xl sm:text-3xl font-bold text-textMuted">Institut Supérieur</div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 px-4">
-            <Link
-              href="#features"
-              className="w-full sm:w-auto px-6 sm:px-8 py-4 bg-surface text-primary rounded-2xl font-bold text-base sm:text-lg hover:bg-hover hover:translate-y-1 active:translate-y-[5px] transition-all duration-150 border-2 border-primary min-h-[56px] flex items-center justify-center"
-              style={{ boxShadow: '0 5px 0 0 rgba(228, 210, 194, 1)', borderBottom: '5px solid rgba(228, 210, 194, 1)' }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 0 0 rgba(228, 210, 194, 1)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 5px 0 0 rgba(228, 210, 194, 1)'}
-              onMouseDown={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 rgba(228, 210, 194, 1)'}
-              onMouseUp={(e) => e.currentTarget.style.boxShadow = '0 2px 0 0 rgba(228, 210, 194, 1)'}
-            >
-              En savoir plus
-            </Link>
+          {/* Témoignages */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+            {/* Témoignage 1 - Directrice */}
+            <div className="bg-background rounded-2xl shadow-card p-6 sm:p-8">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl">👩‍💼</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-text text-lg">Marie Dubois</h4>
+                  <p className="text-textMuted text-sm">Directrice d'école</p>
+                </div>
+              </div>
+              <p className="text-textMuted text-base italic">
+                "Une modernisation immédiate de notre pédagogie"
+              </p>
+            </div>
+
+            {/* Témoignage 2 - Professeur */}
+            <div className="bg-background rounded-2xl shadow-card p-6 sm:p-8">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl">👨‍🏫</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-text text-lg">Pierre Martin</h4>
+                  <p className="text-textMuted text-sm">Professeur de Mathématiques</p>
+                </div>
+              </div>
+              <p className="text-textMuted text-base italic">
+                "Mes étudiants sont enfin réveillés"
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -304,32 +404,23 @@ export default function Home() {
       <section className="bg-primary py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">
-            Prêt à commencer votre aventure ?
+            Prêt à transformer votre établissement ?
           </h2>
           <p className="text-lg sm:text-xl font-medium text-white/90 mb-8">
-            Rejoignez des centaines d'étudiants qui transforment leur apprentissage en jeu
+            Rejoignez les écoles qui modernisent leur pédagogie et boostent l'engagement de leurs étudiants
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/admin"
-              className="px-6 sm:px-8 py-4 bg-white text-textMuted rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px] flex items-center justify-center"
-              style={{ boxShadow: '0 5px 0 0 rgba(107, 91, 79, 1)', borderBottom: '5px solid rgba(107, 91, 79, 1)' }}
-            >
-              👨‍💼 Admin
-            </Link>
             <button
-              onClick={() => setShowTeacherModal(true)}
-              className="px-6 sm:px-8 py-4 bg-white text-blue-600 rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px] flex items-center justify-center"
-              style={{ boxShadow: '0 5px 0 0 rgba(37, 99, 235, 1)', borderBottom: '5px solid rgba(37, 99, 235, 1)' }}
+              onClick={() => {
+                document.querySelector('input[type="email"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                  (document.querySelector('input[type="email"]') as HTMLInputElement)?.focus();
+                }, 500);
+              }}
+              className="px-8 sm:px-12 py-4 sm:py-5 bg-white text-primary rounded-2xl font-bold text-lg sm:text-xl hover:brightness-95 transition-all duration-150 min-h-[64px] flex items-center justify-center gap-2"
+              style={{ boxShadow: '0 5px 0 0 rgba(157, 95, 47, 1)', borderBottom: '5px solid rgba(157, 95, 47, 1)' }}
             >
-              👨‍🏫 Professeur
-            </button>
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="px-6 sm:px-8 py-4 bg-white text-primary rounded-2xl font-bold text-base sm:text-lg hover:brightness-95 transition-all duration-150 min-h-[56px]"
-              style={{ boxShadow: '0 5px 0 0 rgba(228, 210, 194, 1)', borderBottom: '5px solid rgba(228, 210, 194, 1)' }}
-            >
-              👨‍🎓 Étudiant
+              Demander une démo 🎓
             </button>
           </div>
         </div>
