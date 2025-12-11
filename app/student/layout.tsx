@@ -313,7 +313,7 @@ export default function StudentLayout({
       `}>
         {/* Sidebar Header */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-          <h2 className="text-lg font-extrabold text-primary">MOCHI</h2>
+          <h2 className="text-lg font-extrabold text-primary">MONCKI</h2>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-2 rounded-md text-textMuted hover:text-text hover:bg-hover min-h-[44px] min-w-[44px] touch-manipulation flex items-center justify-center"
